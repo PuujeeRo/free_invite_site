@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { EVENT_TYPES } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
 import { useI18n } from "@/i18n/I18nProvider";
+import { CoverImageField } from "@/components/media/CoverImageField";
+import { withCoverLimits } from "@/lib/cover-media";
 import { createEvent, type CreateEventState } from "./actions";
 
 const initialState: CreateEventState = {};
@@ -13,6 +15,8 @@ const ERROR_KEY = {
   enter_name: "errorEnterName",
   choose_date: "errorChooseDate",
   choose_template: "errorChooseTemplate",
+  photo_type: "photoErrorType",
+  photo_size: "photoErrorSize",
   generic: "errorGeneric",
   slug: "errorSlug",
 } as const;
@@ -65,9 +69,7 @@ export function NewEventForm() {
           <Field label={t.newEvent.descriptionLabel}>
             <textarea name="description" maxLength={400} rows={3} className={inputClass} />
           </Field>
-          <Field label={t.newEvent.photoLabel}>
-            <input type="file" name="photo" accept="image/*" className="text-sm" />
-          </Field>
+          <CoverImageField />
         </div>
       </section>
 
@@ -98,7 +100,7 @@ export function NewEventForm() {
 
       {state.error && (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {t.newEvent[ERROR_KEY[state.error]]}
+          {withCoverLimits(t.newEvent[ERROR_KEY[state.error]])}
         </p>
       )}
 

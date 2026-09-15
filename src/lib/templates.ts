@@ -5,6 +5,11 @@ export interface Template {
   name: string;
   description: string;
   // Fixed free-plan palette. Paid plan can override the accent via events.theme.
+  // Arbitrary hex stops rather than Tailwind's named scale on purpose: the
+  // 100/200-level named colors (amber-100, sky-100, ...) all sit at roughly the
+  // same high saturation, which is what made the six templates read as "bright
+  // web pastel" instead of dyed cardstock -- real invitation paper is warm and
+  // very low-chroma. See docs/design-notes if these ever need re-tuning.
   gradient: string; // tailwind gradient classes
   accent: string; // tailwind text color for the accent / eyebrow
   textOnGradient: string; // tailwind text color that reads on the gradient
@@ -18,85 +23,92 @@ export interface Template {
   uppercaseName?: boolean; // tracked-out caps heading instead of a display serif
 }
 
-// 6 templates for v1 -- fewer, nicer, per the product doc.
+// 6 templates for v1 -- fewer, nicer, per the product doc. Palette is warm and
+// low-chroma throughout (ivory/champagne/sage/ink rather than saturated
+// pastels), body text is a warm near-black (#2b2420) rather than cool zinc-900
+// on every light card, and light-card text uses whichever color is lighter --
+// so the whole set reads as dyed paper stock, not colored screen gradients.
+const INK = "text-[#2b2420]";
+const PAPER_WHITE = "text-[#f5f1e8]";
+
 export const TEMPLATES: Template[] = [
   {
     id: "classic",
-    name: "Classic",
-    description: "Warm and simple, works for any event.",
-    gradient: "from-amber-100 via-rose-100 to-amber-50",
-    accent: "text-rose-600",
-    textOnGradient: "text-zinc-900",
+    name: "Ivory Linen",
+    description: "Warm ivory paper, works for any event.",
+    gradient: "from-[#faf6ee] via-[#f6f0e2] to-[#f0e7d2]",
+    accent: "text-[#a15c3e]",
+    textOnGradient: INK,
     display: "serif",
     ornament: "floral",
-    frameBorder: "border-rose-900/15",
-    divider: "bg-rose-900/15",
-    chip: "bg-white/55",
-  },
-  {
-    id: "elegant-gold",
-    name: "Elegant Gold",
-    description: "Soft gold tones for weddings and formal events.",
-    gradient: "from-yellow-100 via-amber-50 to-orange-100",
-    accent: "text-amber-700",
-    textOnGradient: "text-zinc-900",
-    display: "serif",
-    ornament: "rings",
-    frameBorder: "border-amber-800/20",
-    divider: "bg-amber-800/20",
+    frameBorder: "border-[#a15c3e]/20",
+    divider: "bg-[#a15c3e]/25",
     chip: "bg-white/60",
   },
   {
+    id: "elegant-gold",
+    name: "Champagne Gold",
+    description: "Antique gold on cream, for weddings and formal events.",
+    gradient: "from-[#fbf4e3] via-[#f6ead0] to-[#eeddac]",
+    accent: "text-[#8a6a24]",
+    textOnGradient: INK,
+    display: "serif",
+    ornament: "rings",
+    frameBorder: "border-[#8a6a24]/25",
+    divider: "bg-[#8a6a24]/25",
+    chip: "bg-white/65",
+  },
+  {
     id: "midnight",
-    name: "Midnight",
-    description: "Deep navy with a modern, night-time feel.",
-    gradient: "from-slate-900 via-indigo-950 to-slate-900",
-    accent: "text-indigo-300",
-    textOnGradient: "text-zinc-50",
+    name: "Ink Navy",
+    description: "Deep ink navy with a modern, night-time feel.",
+    gradient: "from-[#10131f] via-[#0c0e18] to-[#10131f]",
+    accent: "text-[#c9b98a]",
+    textOnGradient: PAPER_WHITE,
     display: "sans",
     ornament: "stars",
-    frameBorder: "border-indigo-200/20",
-    divider: "bg-indigo-200/20",
+    frameBorder: "border-[#c9b98a]/20",
+    divider: "bg-[#c9b98a]/25",
     chip: "bg-white/10",
     uppercaseName: true,
   },
   {
     id: "playful-pastel",
-    name: "Playful Pastel",
-    description: "Bright and fun -- great for kids' birthdays.",
-    gradient: "from-sky-100 via-pink-100 to-yellow-100",
-    accent: "text-pink-600",
-    textOnGradient: "text-zinc-900",
+    name: "Soft Blossom",
+    description: "Dusty blush and sage -- gentle, great for kids' birthdays.",
+    gradient: "from-[#fdf1ee] via-[#f7ece7] to-[#eef1e5]",
+    accent: "text-[#b8677a]",
+    textOnGradient: INK,
     display: "sans",
     ornament: "confetti",
-    frameBorder: "border-pink-700/15",
-    divider: "bg-pink-700/15",
-    chip: "bg-white/60",
+    frameBorder: "border-[#b8677a]/20",
+    divider: "bg-[#b8677a]/25",
+    chip: "bg-white/65",
   },
   {
     id: "botanical",
-    name: "Botanical",
-    description: "Soft green, natural and calm.",
-    gradient: "from-emerald-100 via-teal-50 to-emerald-50",
-    accent: "text-emerald-700",
-    textOnGradient: "text-zinc-900",
+    name: "Sage Botanical",
+    description: "Soft sage paper, natural and calm.",
+    gradient: "from-[#f5f6ee] via-[#eef1e3] to-[#e4e9d8]",
+    accent: "text-[#5f6f45]",
+    textOnGradient: INK,
     display: "serif",
     ornament: "leaf",
-    frameBorder: "border-emerald-900/15",
-    divider: "bg-emerald-900/15",
-    chip: "bg-white/55",
+    frameBorder: "border-[#5f6f45]/20",
+    divider: "bg-[#5f6f45]/25",
+    chip: "bg-white/60",
   },
   {
     id: "graduation-navy",
-    name: "Cap & Gown",
-    description: "Navy and gold, built for graduations.",
-    gradient: "from-blue-950 via-slate-900 to-blue-950",
-    accent: "text-yellow-400",
-    textOnGradient: "text-zinc-50",
+    name: "Navy & Brass",
+    description: "Navy and brushed brass, built for graduations.",
+    gradient: "from-[#0e1526] via-[#0a0f1c] to-[#0e1526]",
+    accent: "text-[#c9a84c]",
+    textOnGradient: PAPER_WHITE,
     display: "sans",
     ornament: "tassel",
-    frameBorder: "border-yellow-200/25",
-    divider: "bg-yellow-200/25",
+    frameBorder: "border-[#c9a84c]/25",
+    divider: "bg-[#c9a84c]/25",
     chip: "bg-white/10",
     uppercaseName: true,
   },

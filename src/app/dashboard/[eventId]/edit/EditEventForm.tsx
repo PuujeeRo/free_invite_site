@@ -5,6 +5,8 @@ import { useActionState } from "react";
 import { EVENT_TYPES } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
 import { useI18n } from "@/i18n/I18nProvider";
+import { CoverImageField } from "@/components/media/CoverImageField";
+import { withCoverLimits } from "@/lib/cover-media";
 import type { EventRow } from "@/lib/supabase/types";
 import type { EventTheme, EventCustomText } from "@/lib/theme";
 import { updateEvent, type EditEventState } from "./actions";
@@ -18,9 +20,11 @@ function editErrorMessage(t: ReturnType<typeof useI18n>["dict"], error: EditEven
     enter_name: "errorEnterName",
     choose_date: "errorChooseDate",
     choose_template: "errorChooseTemplate",
+    photo_type: "photoErrorType",
+    photo_size: "photoErrorSize",
     generic: "errorGeneric",
   } as const satisfies Record<Exclude<EditEventState["error"], "not_found" | undefined>, keyof typeof t.newEvent>;
-  return t.newEvent[key[error]];
+  return withCoverLimits(t.newEvent[key[error]]);
 }
 
 export function EditEventForm({
@@ -67,9 +71,7 @@ export function EditEventForm({
               className={inputClass}
             />
           </Field>
-          <Field label={t.newEvent.photoLabel}>
-            <input type="file" name="photo" accept="image/*" className="text-sm" />
-          </Field>
+          <CoverImageField currentUrl={event.photo_url} />
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">

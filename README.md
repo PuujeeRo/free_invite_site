@@ -88,6 +88,23 @@ and are validated exactly as they will run in production.
 > API rather than to Postgres directly, so running the app itself still requires
 > a real Supabase project.
 
+## Testing cover uploads
+
+Invitation covers (JPG/PNG/WebP/GIF) are validated by sniffing the file's magic
+bytes rather than trusting the browser-supplied MIME type, because the storage
+bucket is public-read — a script uploaded as `photo.png` would be served from
+the storage origin and execute there. That rule and the per-format size limits
+(5 MB stills, 10 MB GIF) are covered by a suite needing no database or network:
+
+```bash
+npx tsx scripts/verify-cover-media.ts
+```
+
+It asserts the adversarial cases specifically: HTML and SVG declared as
+`image/png` are rejected, and a still image renamed `.gif` cannot borrow the
+larger GIF allowance. `supabase/migrations/0004_cover_media_limits.sql` applies
+the same constraints at the bucket, for anything that bypasses the app.
+
 ## Payments
 
 Providers sit behind one interface (`src/lib/payments/`), selected by

@@ -4,10 +4,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { uploadEventPhoto } from "@/lib/storage";
+import { validateCoverFile } from "@/lib/cover-media";
 import { TEMPLATES } from "@/lib/templates";
 import type { EventRow } from "@/lib/supabase/types";
 
-export type EditEventError = "not_found" | "enter_name" | "choose_date" | "choose_template" | "generic";
+export type EditEventError =
+  | "not_found"
+  | "enter_name"
+  | "choose_date"
+  | "choose_template"
+  | "photo_type"
+  | "photo_size"
+  | "generic";
 
 export interface EditEventState {
   error?: EditEventError;
@@ -54,6 +62,14 @@ export async function updateEvent(_prevState: EditEventState, formData: FormData
   };
 
   if (photo instanceof File && photo.size > 0) {
+    // Re-checked here even though the form pre-checks: the client's `accept`
+    // filter and File.type are both trivially bypassed, and this bucket is
+    // publicly readable (see lib/cover-media.ts).
+    const rejection = await validateCoverFile(photo);
+    if (rejection) {
+      return { error: rejection === "type" ? "photo_type" : "photo_size" };
+    }
+
     try {
       update.photo_url = await uploadEventPhoto(supabase, event.organizer_id, event.id, photo);
     } catch {

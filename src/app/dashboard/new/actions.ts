@@ -4,11 +4,20 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { candidateSlug } from "@/lib/slug";
 import { uploadEventPhoto } from "@/lib/storage";
+import { validateCoverFile } from "@/lib/cover-media";
 import { TEMPLATES } from "@/lib/templates";
 import { EVENT_TYPES } from "@/lib/event-types";
 import type { EventType } from "@/lib/supabase/types";
 
-export type CreateEventError = "choose_type" | "enter_name" | "choose_date" | "choose_template" | "generic" | "slug";
+export type CreateEventError =
+  | "choose_type"
+  | "enter_name"
+  | "choose_date"
+  | "choose_template"
+  | "photo_type"
+  | "photo_size"
+  | "generic"
+  | "slug";
 
 export interface CreateEventState {
   error?: CreateEventError;
@@ -55,6 +64,18 @@ export async function createEvent(
     return { error: "choose_template" };
   }
 
+  // Validated up front, before the event row is inserted. Doing it after the
+  // insert (where the upload has to happen, since the path needs the event id)
+  // would mean a rejected file leaves behind an event the organizer never got
+  // to see -- they'd land on an error with a phantom invitation already created.
+  const hasPhoto = photo instanceof File && photo.size > 0;
+  if (hasPhoto) {
+    const rejection = await validateCoverFile(photo);
+    if (rejection) {
+      return { error: rejection === "type" ? "photo_type" : "photo_size" };
+    }
+  }
+
   let insertedId: string | null = null;
   let insertedSlug: string | null = null;
 
@@ -92,13 +113,14 @@ export async function createEvent(
     return { error: "slug" };
   }
 
-  if (photo instanceof File && photo.size > 0) {
+  if (hasPhoto) {
     try {
       const photoUrl = await uploadEventPhoto(supabase, user.id, insertedId, photo);
       await supabase.from("events").update({ photo_url: photoUrl }).eq("id", insertedId);
     } catch {
-      // The event was created successfully -- the photo can be added later from
-      // the event page, so don't block on an upload failure.
+      // Reaching here means the file already passed validation and the event
+      // row exists, so this is an infrastructure failure rather than bad input.
+      // The cover can be added from the edit page, so don't discard the event.
     }
   }
 

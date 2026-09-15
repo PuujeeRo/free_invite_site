@@ -1,0 +1,27 @@
+-- Constrain what the public event-media bucket will physically accept.
+--
+-- The server actions already validate cover uploads by sniffing magic bytes
+-- (see src/lib/cover-media.ts), so this is defence in depth rather than the
+-- primary gate: the bucket is PUBLIC-read, and anything holding the project's
+-- anon/service key can call the storage API directly without going through a
+-- server action at all. Without these columns the bucket accepts any MIME type
+-- at any size -- including text/html and image/svg+xml, which are served from
+-- the storage origin and would execute there.
+--
+-- Kept deliberately in step with src/lib/cover-media.ts:
+--   MAX_GIF_BYTES = 10 MB  ->  file_size_limit below (the larger of the two
+--   app-side limits; the per-format split of 5 MB stills / 10 MB GIF is finer
+--   grained than a bucket can express, so the app enforces that distinction).
+-- video/mp4 is listed because events.video_url is a paid-plan feature that
+-- shares this bucket; drop it here if video ever moves elsewhere.
+update storage.buckets
+set
+  file_size_limit = 10485760, -- 10 MB
+  allowed_mime_types = array[
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'video/mp4'
+  ]
+where id = 'event-media';
