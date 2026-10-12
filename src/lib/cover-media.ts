@@ -1,3 +1,5 @@
+import { MAX_GALLERY_IMAGES } from "@/lib/gallery";
+
 // Single source of truth for what may be uploaded as an invitation cover.
 // Imported by the client forms (to set `accept` and give instant feedback) AND
 // by the server actions (which are the actual gate -- see validateCoverFile).
@@ -127,5 +129,8 @@ export function formatMb(bytes: number): string {
 export function withCoverLimits(template: string): string {
   return template
     .replace("{still}", formatMb(MAX_STILL_BYTES))
-    .replace("{gif}", formatMb(MAX_GIF_BYTES));
+    .replace("{gif}", formatMb(MAX_GIF_BYTES))
+    // The gallery messages share this formatter because the forms pass every
+    // error string through it; a string without the placeholder is unaffected.
+    .replace("{max}", String(MAX_GALLERY_IMAGES));
 }

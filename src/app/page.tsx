@@ -2,12 +2,49 @@ import Link from "next/link";
 import { getLocale } from "@/i18n/get-locale";
 import { getDictionary } from "@/i18n/dictionaries";
 import { TopControls } from "@/components/theme/TopControls";
+import { AccountButton } from "@/components/account/AccountButton";
 import { Logo } from "@/components/brand/Logo";
 import { HeaderRow } from "@/components/layout/HeaderRow";
 import { InvitationCard } from "@/components/templates/InvitationCard";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
-import { SAMPLE_EVENTS, demoPhotoDataUri, demoEventDate } from "@/lib/demo-data";
+import { SAMPLE_EVENTS, demoPhotoDataUri, demoTallCoverDataUri, demoEventDate } from "@/lib/demo-data";
 import { TEMPLATES } from "@/lib/templates";
+import { EVENT_TYPES, PAYMENTS_ENABLED } from "@/lib/event-types";
+import { TemplateMiniCard } from "@/components/templates/TemplateMiniCard";
+import {
+  ArrowRightIcon,
+  CalendarPlusIcon,
+  EnvelopeSimpleOpenIcon,
+  ImagesIcon,
+  MapPinIcon,
+  SparkleIcon,
+  UsersThreeIcon,
+} from "@phosphor-icons/react/dist/ssr";
+
+// Which templates the landing shelf shows, in order.
+const SHELF_ORDER = [
+  "classic",
+  "burgundy",
+  "rose-quartz",
+  "midnight",
+  "saffron",
+  "forest",
+  "lavender",
+  "graduation-navy",
+  "mint",
+  "charcoal",
+  "peach",
+  "steppe-sky",
+] as const;
+
+// Height offset and tilt for shelf cards, cycled. Literal class names so
+// Tailwind's scanner emits them; sm-prefixed so a phone gets a plain row.
+const SHELF_POSE = ["sm:-rotate-2", "sm:mt-8 sm:rotate-1", "sm:mt-3 sm:-rotate-1", "sm:mt-10 sm:rotate-2"] as const;
+
+// Vertical stagger for the three steps at md and up. Literal class names (not
+// interpolated) so Tailwind's scanner emits them, and md-prefixed so the
+// mobile layout stays a plain single column.
+const STEP_OFFSET = ["", "md:mt-10", "md:mt-20"] as const;
 
 export default async function Home() {
   const locale = await getLocale();
@@ -22,7 +59,35 @@ export default async function Home() {
   const { date, time } = demoEventDate(21);
   const behindDate = demoEventDate(45);
 
-  const trustChips = [t.landing.trustTemplates, t.landing.trustMessenger, t.landing.trustPrice];
+  // "From 999₮" is only true while there is something to buy; otherwise the
+  // third chip just says the product is free.
+  // The count is read from the catalogue so the copy cannot drift from it. The
+  // gallery below shows only the first six; the full set lives in the picker.
+  const templateCount = String(TEMPLATES.length);
+  // Twelve of them for the shelf, ordered so light and dark papers alternate
+  // and no two neighbours share a palette. Each carries a sample name from a
+  // matching occasion, so the shelf reads as invitations, not as blanks.
+  const shelf = SHELF_ORDER.flatMap((id, i) => {
+    const template = TEMPLATES.find((item) => item.id === id);
+    return template ? [{ template, name: SAMPLE_EVENTS[i % SAMPLE_EVENTS.length].name }] : [];
+  });
+
+  const features = [
+    { Icon: UsersThreeIcon, title: t.landing.featureRsvpTitle, body: t.landing.featureRsvpBody },
+    { Icon: MapPinIcon, title: t.landing.featureMapTitle, body: t.landing.featureMapBody },
+    { Icon: CalendarPlusIcon, title: t.landing.featureCalendarTitle, body: t.landing.featureCalendarBody },
+    { Icon: ImagesIcon, title: t.landing.featureSliderTitle, body: t.landing.featureSliderBody },
+    { Icon: SparkleIcon, title: t.landing.featureEffectTitle, body: t.landing.featureEffectBody },
+    { Icon: EnvelopeSimpleOpenIcon, title: t.landing.featureGreetingTitle, body: t.landing.featureGreetingBody },
+  ];
+
+  // The sample greeting in the closing band.
+  const closing = SAMPLE_EVENTS.find((sample) => sample.id === "hair_cutting") ?? SAMPLE_EVENTS[0];
+  const trustChips = [
+    t.landing.trustTemplates.replace("{count}", templateCount),
+    t.landing.trustMessenger,
+    PAYMENTS_ENABLED ? t.landing.trustPrice : t.landing.planFree,
+  ];
 
   const steps = [
     { n: "1", title: t.landing.step1Title, body: t.landing.step1Body },
@@ -73,33 +138,38 @@ export default async function Home() {
         <header className="px-4 py-4 sm:px-6">
           <HeaderRow maxWidth="3xl">
             <Logo markClassName="h-5 w-5" textClassName="text-base sm:text-lg" />
-            <TopControls />
+            <div className="flex items-center gap-2">
+              <TopControls />
+              <AccountButton />
+            </div>
           </HeaderRow>
         </header>
 
-        {/* hero */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-rose-50/60 via-white to-white px-4 pt-8 pb-16 sm:px-6 sm:pt-12 sm:pb-20 lg:flex lg:flex-1 lg:items-center lg:pt-3 lg:pb-3 dark:from-indigo-950/40 dark:via-black dark:to-black">
-        <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-14 lg:flex-row lg:items-center lg:justify-center">
-          <div className="flex max-w-2xl flex-col items-center text-center lg:items-start lg:text-left">
-            <p className="text-xs font-medium tracking-[0.2em] text-zinc-500 uppercase dark:text-zinc-500">
-              {t.landing.eyebrow}
-            </p>
-            <h1 className="font-display mt-3 text-3xl font-medium text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
+        {/* Hero. Asymmetric split: message left, the product itself right.
+            The tint is amber in BOTH themes and fades to transparent rather than
+            to a colour of its own, so it never bands against the page background
+            and the accent hue does not change between light and dark.
+            The lg: flex/padding classes are what make header + hero fill exactly
+            one viewport (see the wrapper above and the card sizing below). */}
+        <section className="relative overflow-hidden bg-gradient-to-b from-amber-100/50 to-transparent px-4 pt-6 pb-16 sm:px-6 sm:pt-10 lg:flex lg:flex-1 lg:items-center lg:pt-3 lg:pb-3 dark:from-amber-950/25">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-between lg:gap-16">
+          <div className="flex max-w-xl flex-col items-center text-center lg:items-start lg:text-left">
+            <h1 className="font-display text-3xl font-medium text-balance text-zinc-900 sm:text-5xl dark:text-zinc-50">
               {t.landing.title}
             </h1>
             <p className="mt-4 max-w-md text-base text-pretty text-zinc-600 sm:text-lg dark:text-zinc-400">
               {t.landing.subtitle}
             </p>
-            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
               <Link
                 href="/login"
-                className="w-full rounded-full bg-zinc-900 px-6 py-3 text-center text-sm font-medium text-white visited:text-white transition-colors hover:bg-zinc-700 sm:w-auto dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200"
+                className="w-full rounded-full bg-zinc-900 px-6 py-3 text-center text-sm font-medium text-white transition-transform visited:text-white hover:bg-zinc-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none sm:w-auto dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
               >
                 {t.landing.cta}
               </Link>
               <Link
                 href="/demo"
-                className="w-full rounded-full border border-zinc-300 px-6 py-3 text-center text-sm font-medium text-zinc-700 visited:text-zinc-700 transition-colors hover:border-zinc-500 sm:w-auto dark:border-zinc-700 dark:text-zinc-300 dark:visited:text-zinc-300"
+                className="w-full rounded-full border border-zinc-300 px-6 py-3 text-center text-sm font-medium text-zinc-700 transition-transform visited:text-zinc-700 hover:border-zinc-500 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none sm:w-auto dark:border-zinc-700 dark:text-zinc-300 dark:visited:text-zinc-300 dark:hover:border-zinc-500 dark:focus-visible:ring-zinc-100"
               >
                 {t.landing.demoCta}
               </Link>
@@ -200,52 +270,133 @@ export default async function Home() {
         </section>
       </div>
 
-      {/* template gallery */}
-      <section className="border-t border-zinc-200 px-4 py-14 sm:px-6 dark:border-zinc-800">
-        <div className="mx-auto max-w-5xl text-center">
-          <h2 className="font-display text-2xl font-medium text-zinc-900 sm:text-3xl dark:text-zinc-50">
-            {t.landing.templatesTitle}
-          </h2>
-          <p className="mt-2 text-sm text-zinc-600 sm:text-base dark:text-zinc-400">
-            {t.landing.templatesSubtitle}
-          </p>
-
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5">
-            {TEMPLATES.map((template) => (
-              <div
-                key={template.id}
-                className={`overflow-hidden rounded-xl border sm:rounded-2xl ${template.frameBorder}`}
-              >
-                <div className={`h-20 w-full bg-gradient-to-br sm:h-28 ${template.gradient}`} />
-                <div className="bg-white px-3 py-2.5 text-left sm:px-4 sm:py-3 dark:bg-zinc-900">
-                  <p className="text-xs font-medium text-zinc-900 sm:text-sm dark:text-zinc-50">
-                    {template.name}
-                  </p>
-                  <p className="mt-0.5 hidden text-xs text-zinc-500 sm:block">{template.description}</p>
-                </div>
-              </div>
-            ))}
+      {/* Template shelf. Real miniature cards rather than colour swatches: a
+          strip of gradient cannot show that one template sets a name in a
+          serif and another in tracked capitals, which is most of what makes
+          them different. Laid out as an uneven row that scrolls sideways --
+          alternating height and a slight tilt, like cards put down on a table
+          -- instead of a grid of identical boxes. Same component the picker
+          uses, so this is exactly what is on offer. */}
+      <section className="reveal border-t border-zinc-200 py-16 sm:py-20 dark:border-zinc-800">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+            <div>
+              <h2 className="font-display text-2xl font-medium tracking-tight text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
+                {t.landing.templatesTitle}
+              </h2>
+              <p className="mt-2 max-w-[52ch] text-sm text-pretty text-zinc-600 sm:text-base dark:text-zinc-400">
+                {t.landing.templatesSubtitle.replace("{count}", templateCount)}
+              </p>
+            </div>
+            <Link
+              href="/demo"
+              className="group inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-4 transition-colors hover:decoration-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-zinc-100 dark:decoration-zinc-700 dark:hover:decoration-zinc-100"
+            >
+              {t.landing.shelfLink}
+              <ArrowRightIcon aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
-      </section>
 
-      {/* how it works */}
-      <section className="px-4 py-14 sm:px-6">
-        <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3 sm:gap-8">
-          {steps.map((step) => (
-            <div key={step.n} className="flex flex-col items-center text-center sm:items-start sm:text-left">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-50 dark:text-zinc-900">
-                {step.n}
-              </span>
-              <h2 className="mt-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{step.title}</h2>
-              <p className="mt-1 text-sm text-pretty text-zinc-600 dark:text-zinc-400">{step.body}</p>
-            </div>
-          ))}
+        {/* Full-bleed so cards run off the screen edge, which is what tells a
+            visitor there is more to scroll to. Focusable so the row can be
+            scrolled from the keyboard. */}
+        <div
+          tabIndex={0}
+          role="group"
+          aria-label={t.landing.templatesTitle}
+          className="mt-10 overflow-x-auto pb-6 [scrollbar-width:none] focus-visible:outline-none [&::-webkit-scrollbar]:hidden"
+        >
+          <ul className="mx-auto flex w-max snap-x gap-4 px-4 sm:gap-6 sm:px-6 lg:px-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))]">
+            {shelf.map(({ template, name }, i) => (
+              <li
+                key={template.id}
+                className={`w-36 shrink-0 snap-start sm:w-44 ${SHELF_POSE[i % SHELF_POSE.length]}`}
+              >
+                <TemplateMiniCard
+                  template={template}
+                  name={name}
+                  className="rounded-2xl shadow-[0_10px_30px_-14px_rgba(60,40,10,0.45)] ring-1 ring-black/5"
+                />
+                <p className="mt-3 text-xs font-medium text-zinc-600 dark:text-zinc-400">{template.name}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      {/* pricing */}
-      <section className="border-t border-zinc-200 px-4 py-14 sm:px-6 sm:py-20 dark:border-zinc-800">
+      {/* How it works. Three steps, but deliberately not three identical
+          columns: each step sits lower than the one before it on desktop, so
+          the eye reads them as a sequence rather than scanning them as a menu
+          of equal options. No boxes: the numbers and the spacing carry it. */}
+      <section className="reveal px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-5xl">
+          <ol className="grid gap-10 md:grid-cols-3 md:gap-8">
+            {steps.map((step, i) => (
+              <li
+                key={step.n}
+                className={`relative flex flex-col items-center text-center md:items-start md:text-left ${STEP_OFFSET[i]}`}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-50 dark:text-zinc-900">
+                  {step.n}
+                </span>
+                <h2 className="mt-4 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  {step.title}
+                </h2>
+                <p className="mt-1.5 max-w-[34ch] text-sm text-pretty text-zinc-600 dark:text-zinc-400">
+                  {step.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* What one invitation carries. A wide split, not a row of feature
+          cards: the occasions sit on the left as a loose cloud of labels, the
+          capabilities on the right as a plain two-column list with no boxes
+          around them. Nothing here is elevated above anything else, so nothing
+          needs a card. */}
+      <section className="reveal border-t border-zinc-200 px-4 py-16 sm:px-6 sm:py-24 dark:border-zinc-800">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-20">
+          <div>
+            <h2 className="font-display text-2xl font-medium tracking-tight text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
+              {t.landing.featuresTitle}
+            </h2>
+            <p className="mt-3 max-w-[44ch] text-sm text-pretty text-zinc-600 sm:text-base dark:text-zinc-400">
+              {t.landing.featuresSubtitle}
+            </p>
+            <ul className="mt-8 flex flex-wrap gap-2">
+              {EVENT_TYPES.filter((type) => type.id !== "other").map((type) => (
+                <li
+                  key={type.id}
+                  className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:text-zinc-300"
+                >
+                  {locale === "mn" ? type.labelMn : type.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <dl className="grid gap-x-12 gap-y-9 sm:grid-cols-2">
+            {features.map(({ Icon, title, body }) => (
+              <div key={title} className="border-t border-zinc-200 pt-5 dark:border-zinc-800">
+                <dt className="flex items-center gap-2.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-500" />
+                  {title}
+                </dt>
+                <dd className="mt-2 max-w-[38ch] text-sm text-pretty text-zinc-600 dark:text-zinc-400">{body}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      {/* Pricing. Hidden while PAYMENTS_ENABLED is false (see lib/event-types):
+          there is nothing to buy, so a free-vs-paid comparison would advertise
+          a plan nobody can reach. */}
+      {PAYMENTS_ENABLED && (
+      <section className="reveal border-t border-zinc-200 px-4 py-16 sm:px-6 sm:py-20 dark:border-zinc-800">
         <div className="mx-auto max-w-3xl">
           <h2 className="font-display text-center text-2xl font-medium text-zinc-900 sm:text-3xl dark:text-zinc-50">
             {t.landing.pricingTitle}
@@ -346,13 +497,86 @@ export default async function Home() {
           <div className="mt-10 flex justify-center">
             <Link
               href="/login"
-              className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white visited:text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200"
+              className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-transform visited:text-white hover:bg-zinc-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
             >
               {t.landing.cta}
             </Link>
           </div>
         </div>
       </section>
+      )}
+
+      {/* Closing call to action. The page used to end on the three steps with
+          nowhere to go next. The band reuses the hero's amber tint so the page
+          closes on the colour it opened with, and the card breaks out of the
+          band top and bottom for depth. That card is a greeting on a
+          full-background cover with an effect running: three of the newer
+          options, shown instead of described. */}
+      <section className="px-4 pt-10 pb-24 sm:px-6 sm:pt-16 sm:pb-32">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 rounded-[2rem] bg-amber-100/60 px-6 py-12 sm:px-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-16 lg:py-0 dark:bg-amber-950/25">
+          <div className="lg:py-16">
+            <h2 className="font-display text-3xl font-medium tracking-tight text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
+              {t.landing.closingTitle}
+            </h2>
+            <p className="mt-3 max-w-[46ch] text-sm text-pretty text-zinc-700 sm:text-base dark:text-zinc-300">
+              {t.landing.closingBody}
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <Link
+                href="/login"
+                className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-transform visited:text-white hover:bg-zinc-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
+              >
+                {t.landing.cta}
+              </Link>
+              {/* A text link, not a second outlined button: the hero already
+                  uses the filled + outlined pair once. */}
+              <Link
+                href="/demo"
+                className="text-sm font-medium text-zinc-800 underline decoration-zinc-400 underline-offset-4 transition-colors hover:decoration-zinc-900 dark:text-zinc-200 dark:decoration-zinc-600 dark:hover:decoration-zinc-100"
+              >
+                {t.landing.demoCta}
+              </Link>
+            </div>
+          </div>
+
+          <div className="mx-auto w-full max-w-[20rem] rotate-2 lg:-my-10">
+            <InvitationCard
+              eventName={closing.name}
+              eventType={closing.eventType}
+              kind="greeting"
+              senderName={t.landing.closingCardSender}
+              eventDate={behindDate.date}
+              eventTime={null}
+              location={null}
+              description={t.landing.closingCardMessage}
+              photoUrl={demoTallCoverDataUri(closing.photoEmoji, ["#e3c79a", "#8a5a3c"])}
+              coverLayout="full"
+              templateId={closing.defaultTemplateId}
+              isPaid
+              theme={{ effect: "sparkle" }}
+              mapLinkLabel={t.invite.viewMap}
+              watermarkText={t.invite.watermark}
+              countdownLabels={countdownLabelsFrom(t)}
+            />
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-zinc-200 px-4 py-8 sm:px-6 dark:border-zinc-800">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-8 gap-y-4 text-sm text-zinc-600 dark:text-zinc-400">
+          <Logo markClassName="h-4 w-4" textClassName="text-sm" className="text-zinc-900 dark:text-zinc-100" />
+          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <Link href="/demo" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+              {t.landing.demoCta}
+            </Link>
+            <Link href="/login" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+              {t.landing.cta}
+            </Link>
+          </nav>
+          <p className="text-xs">© {new Date().getFullYear()} Naashir</p>
+        </div>
+      </footer>
+
     </div>
   );
 }

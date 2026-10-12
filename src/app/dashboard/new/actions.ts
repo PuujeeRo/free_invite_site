@@ -5,9 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import { candidateSlug } from "@/lib/slug";
 import { uploadEventPhoto } from "@/lib/storage";
 import { validateCoverFile } from "@/lib/cover-media";
+import { normalizeMapInput } from "@/lib/map-embed";
+import { parseGalleryUrls } from "@/lib/gallery";
+import { buildTheme, parseCardEffect } from "@/lib/theme";
+import { featuresUnlocked } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
 import { EVENT_TYPES } from "@/lib/event-types";
-import type { EventType } from "@/lib/supabase/types";
+import { parseCoverLayout, type EventType } from "@/lib/supabase/types";
 
 export type CreateEventError =
   | "choose_type"
@@ -16,6 +20,8 @@ export type CreateEventError =
   | "choose_template"
   | "photo_type"
   | "photo_size"
+  | "bad_map_link"
+  | "bad_gallery"
   | "generic"
   | "slug";
 
@@ -50,6 +56,9 @@ export async function createEvent(
   const description = String(formData.get("description") ?? "").trim();
   const templateId = String(formData.get("template_id") ?? "classic");
   const photo = formData.get("photo");
+  const isGreeting = formData.get("kind") === "greeting";
+  const senderName = String(formData.get("sender_name") ?? "").trim().slice(0, 80);
+  const coverLayout = parseCoverLayout(formData.get("cover_layout"));
 
   if (!EVENT_TYPE_IDS.has(eventType as EventType)) {
     return { error: "choose_type" };
@@ -62,6 +71,23 @@ export async function createEvent(
   }
   if (!TEMPLATE_IDS.has(templateId)) {
     return { error: "choose_template" };
+  }
+
+  // A greeting has no place, so no map. For an invitation the link is checked
+  // before anything is created: it becomes an href on a public page. A new
+  // event is never paid yet, hence featuresUnlocked(false).
+  const mapLink =
+    isGreeting || !featuresUnlocked(false)
+      ? ({ ok: true, url: null } as const)
+      : await normalizeMapInput(formData.get("map_link"));
+  if (!mapLink.ok) {
+    return { error: "bad_map_link" };
+  }
+
+  const theme = buildTheme({ effect: parseCardEffect(formData.get("effect")) });
+  const gallery = parseGalleryUrls(formData.get("gallery_urls"));
+  if (!gallery.ok) {
+    return { error: "bad_gallery" };
   }
 
   // Validated up front, before the event row is inserted. Doing it after the
@@ -88,11 +114,26 @@ export async function createEvent(
         event_type: eventType as EventType,
         name,
         event_date: eventDate,
-        event_time: eventTime || null,
-        location: location || null,
+        // A greeting is a card, not a gathering: it has no time or place.
+        event_time: isGreeting ? null : eventTime || null,
+        location: isGreeting ? null : location || null,
         description: description || null,
+        ...(mapLink.url ? { map_link: mapLink.url } : {}),
         template_id: templateId,
         slug,
+        // Sent only for greetings, so that creating an ordinary invitation
+        // keeps working on a database that has not had migration 0009 applied
+        // (the columns would not exist yet; their default is 'invitation').
+        ...(isGreeting ? { kind: "greeting" as const, sender_name: senderName || null } : {}),
+        // Same reasoning, migration 0010: the default placement is not sent,
+        // so it never touches a column that may not exist yet.
+        ...(coverLayout !== "top" ? { cover_layout: coverLayout } : {}),
+        // Migration 0011, same rule: only sent when there is something to store.
+        ...(gallery.urls.length > 0 ? { gallery_urls: gallery.urls } : {}),
+        // events.theme has existed since the first migration, so this needs no
+        // such care -- it is simply left at its default unless an effect other
+        // than the standard one was chosen.
+        ...(featuresUnlocked(false) && Object.keys(theme).length > 0 ? { theme } : {}),
       })
       .select("id, slug")
       .single();

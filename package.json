@@ -10,6 +10,7 @@
     "dev:postgrest": "./.localdev/postgrest.exe ./.localdev/postgrest.conf"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "0.12.4",
     "@supabase/supabase-js": "2.112.3",
     "jose": "6.2.9",
@@ -18,6 +19,7 @@
     "react-dom": "19.2.8",
     "resend": "6.20.0",
     "server-only": "0.0.1",
+    "sharp": "0.35.3",
     "stripe": "22.5.0"
   },
   "devDependencies": {

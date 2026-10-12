@@ -3,9 +3,15 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPaymentProvider } from "@/lib/payments";
-import { PAID_PRICE_MNT } from "@/lib/event-types";
+import { PAID_PRICE_MNT, PAYMENTS_ENABLED } from "@/lib/event-types";
 
 export async function startCheckout(eventId: string) {
+  // A server action is its own public endpoint, callable without ever loading
+  // the page that renders its form, so the page's guard does not cover it.
+  if (!PAYMENTS_ENABLED) {
+    redirect(`/dashboard/${eventId}`);
+  }
+
   const supabase = await createClient();
 
   // RLS scopes this to the caller's own event; a stranger passing another
@@ -59,7 +65,12 @@ export async function startCheckout(eventId: string) {
 
     await supabase
       .from("payments")
-      .update({ provider_ref: invoice.providerRef })
+      .update({
+        provider_ref: invoice.providerRef,
+        // Persisted so the checkout page can re-render the same QR on reload
+        // instead of minting a second QPay invoice per page view.
+        checkout: invoice.checkout ?? null,
+      })
       .eq("id", payment.id);
   } catch {
     await supabase.from("payments").update({ status: "failed" }).eq("id", payment.id);

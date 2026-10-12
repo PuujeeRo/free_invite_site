@@ -1,12 +1,10 @@
 import { MockPaymentProvider } from "./mock";
-import { QPayProvider } from "./qpay";
+import { QPayProvider, qpayCredentials } from "./qpay";
 import { StripeProvider, isStripeConfigured } from "./stripe";
 import type { PaymentProvider, PaymentProviderName } from "./types";
 
 function isQPayConfigured(): boolean {
-  return Boolean(
-    process.env.QPAY_CLIENT_ID && process.env.QPAY_CLIENT_SECRET && process.env.QPAY_INVOICE_CODE
-  );
+  return Boolean(qpayCredentials() && process.env.QPAY_INVOICE_CODE);
 }
 
 function build(name: PaymentProviderName): PaymentProvider {
@@ -35,7 +33,9 @@ export function getPaymentProvider(): PaymentProvider {
 
   if (pinned === "qpay" || pinned === "stripe" || pinned === "mock") {
     if (pinned === "qpay" && !isQPayConfigured()) {
-      throw new Error("PAYMENT_PROVIDER=qpay but QPAY_CLIENT_ID/SECRET/INVOICE_CODE are not all set");
+      throw new Error(
+        "PAYMENT_PROVIDER=qpay but QPAY_USERNAME/QPAY_PASSWORD/QPAY_INVOICE_CODE are not all set"
+      );
     }
     if (pinned === "stripe" && !isStripeConfigured()) {
       throw new Error("PAYMENT_PROVIDER=stripe but STRIPE_SECRET_KEY is not set");

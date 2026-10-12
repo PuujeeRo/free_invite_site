@@ -58,7 +58,11 @@ $$;
 create table if not exists storage.buckets (
   id text primary key,
   name text not null,
-  public boolean not null default false
+  public boolean not null default false,
+  -- Both exist on real Supabase's storage.buckets with these types; the
+  -- cover-media migration sets them, so the stand-in table needs them too.
+  file_size_limit bigint,
+  allowed_mime_types text[]
 );
 
 create table if not exists storage.objects (

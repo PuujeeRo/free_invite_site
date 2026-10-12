@@ -5,8 +5,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { uploadEventPhoto } from "@/lib/storage";
 import { validateCoverFile } from "@/lib/cover-media";
+import { isGreeting } from "@/lib/greeting";
+import { parseHttpLink } from "@/lib/safe-link";
+import { normalizeMapInput } from "@/lib/map-embed";
+import { parseGalleryUrls, readGallery } from "@/lib/gallery";
+import { buildTheme, parseCardEffect } from "@/lib/theme";
+import { featuresUnlocked } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
-import type { EventRow } from "@/lib/supabase/types";
+import { parseCoverLayout, type EventRow } from "@/lib/supabase/types";
 
 export type EditEventError =
   | "not_found"
@@ -15,6 +21,9 @@ export type EditEventError =
   | "choose_template"
   | "photo_type"
   | "photo_size"
+  | "bad_map_link"
+  | "bad_gallery"
+  | "bad_video_link"
   | "generic";
 
 export interface EditEventState {
@@ -52,14 +61,40 @@ export async function updateEvent(_prevState: EditEventState, formData: FormData
   if (!eventDate) return { error: "choose_date" };
   if (!TEMPLATE_IDS.has(templateId)) return { error: "choose_template" };
 
+  // Extras are read only when this event may have them (the form omits the
+  // fields otherwise) and ignored otherwise, so a hand-built request cannot
+  // set them. Both links are validated: they become an href / src on a
+  // public page.
+  const unlocked = featuresUnlocked(event.is_paid);
+  const mapLink = unlocked && !isGreeting(event) ? await normalizeMapInput(formData.get("map_link")) : null;
+  if (mapLink && !mapLink.ok) return { error: "bad_map_link" };
+  const videoLink = unlocked ? parseHttpLink(formData.get("video_url")) : null;
+  if (videoLink && !videoLink.ok) return { error: "bad_video_link" };
+
+  const greeting = isGreeting(event);
   const update: Partial<EventRow> = {
     name,
     event_date: eventDate,
-    event_time: eventTime || null,
-    location: location || null,
+    event_time: greeting ? null : eventTime || null,
+    location: greeting ? null : location || null,
     description: description || null,
     template_id: templateId,
   };
+  if (greeting) {
+    update.sender_name = String(formData.get("sender_name") ?? "").trim().slice(0, 80) || null;
+  }
+  // Written only when it actually changes, so saving an unrelated edit works
+  // on a database that has not had migration 0010 applied.
+  const coverLayout = parseCoverLayout(formData.get("cover_layout"));
+  if (coverLayout !== parseCoverLayout(event.cover_layout)) {
+    update.cover_layout = coverLayout;
+  }
+  // Likewise for the gallery (migration 0011): written only when it changes.
+  const gallery = parseGalleryUrls(formData.get("gallery_urls"));
+  if (!gallery.ok) return { error: "bad_gallery" };
+  if (gallery.urls.join("\n") !== readGallery(event.gallery_urls).join("\n")) {
+    update.gallery_urls = gallery.urls;
+  }
 
   if (photo instanceof File && photo.size > 0) {
     // Re-checked here even though the form pre-checks: the client's `accept`
@@ -77,19 +112,20 @@ export async function updateEvent(_prevState: EditEventState, formData: FormData
     }
   }
 
-  // Paid-only fields: silently ignored (not just hidden) for a free event, so
-  // a form submitted directly can't bypass the paid gate.
-  if (event.is_paid) {
+  // Extras: silently ignored (not just hidden) for an event that may not have
+  // them, so a form submitted directly can't bypass the gate.
+  if (unlocked) {
     const accentColor = String(formData.get("accent_color") ?? "").trim();
     const greetingOverride = String(formData.get("greeting_override") ?? "").trim();
-    const videoUrl = String(formData.get("video_url") ?? "").trim();
-    const mapLink = String(formData.get("map_link") ?? "").trim();
     const countdownEnabled = formData.get("countdown_enabled") === "on";
 
-    update.theme = accentColor && HEX_COLOR.test(accentColor) ? { accentColor } : {};
+    update.theme = buildTheme({
+      accentColor: accentColor && HEX_COLOR.test(accentColor) ? accentColor : null,
+      effect: parseCardEffect(formData.get("effect")),
+    });
     update.custom_text = greetingOverride ? { greetingOverride } : {};
-    update.video_url = videoUrl || null;
-    update.map_link = mapLink || null;
+    if (videoLink?.ok) update.video_url = videoLink.url;
+    if (mapLink?.ok) update.map_link = mapLink.url;
     update.countdown_enabled = countdownEnabled;
   }
 

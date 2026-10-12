@@ -25,12 +25,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex flex-1 flex-col">
       <header className="border-b border-zinc-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
         <HeaderRow maxWidth="2xl">
-          <Link href="/dashboard" className="text-zinc-900 dark:text-zinc-50">
+          {/* Logo goes to the public home page, as on every other screen. It used
+              to point at /dashboard, which left signed-in users with no way
+              back to the home page at all, so the event list gets its own
+              text link instead. */}
+          <Link href="/" className="text-zinc-900 dark:text-zinc-50">
             <Logo markClassName="h-5 w-5" textClassName="text-base" />
           </Link>
           <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+            <Link href="/dashboard" className="hover:text-zinc-900 dark:hover:text-zinc-50">
+              {t.dashboard.navLabel}
+            </Link>
             <TopControls />
-            <span>{user.email}</span>
+            <span className="hidden sm:inline">{user.email}</span>
             <form action={signOut}>
               <button type="submit" className="hover:text-zinc-900 dark:hover:text-zinc-50">
                 {t.common.signOut}

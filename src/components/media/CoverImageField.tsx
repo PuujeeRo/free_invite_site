@@ -14,7 +14,16 @@ import { useI18n } from "@/i18n/I18nProvider";
  * exactly the thing the user is checking. The invitation card itself renders
  * the stored cover with `unoptimized` for the same reason.
  */
-export function CoverImageField({ currentUrl }: { currentUrl?: string | null }) {
+export function CoverImageField({
+  currentUrl,
+  onPreviewChange,
+}: {
+  currentUrl?: string | null;
+  // Reports the blob URL of the accepted file (or null when cleared/rejected)
+  // so a parent can show it in a larger preview. The URL is owned and revoked
+  // here; a parent must only ever render the latest value it was given.
+  onPreviewChange?: (url: string | null) => void;
+}) {
   const { dict: t } = useI18n();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [rejection, setRejection] = useState<CoverRejection | null>(null);
@@ -34,6 +43,7 @@ export function CoverImageField({ currentUrl }: { currentUrl?: string | null }) 
     // No manual revoke here: the effect above already revokes whatever URL is
     // being replaced, including on the clear-to-null paths below.
     setPreviewUrl(null);
+    onPreviewChange?.(null);
 
     if (!file) {
       setRejection(null);
@@ -52,7 +62,9 @@ export function CoverImageField({ currentUrl }: { currentUrl?: string | null }) 
       return;
     }
 
-    setPreviewUrl(URL.createObjectURL(file));
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    onPreviewChange?.(url);
   }
 
   const shown = previewUrl ?? currentUrl ?? null;

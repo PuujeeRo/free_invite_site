@@ -1,0 +1,15 @@
+-- More invitation categories. Mirrors EVENT_TYPES in src/lib/event-types.ts.
+--
+-- This file ONLY adds the enum values. The guest-limit trigger that has to know
+-- about them is redefined in 0008, in a separate migration on purpose: Postgres
+-- refuses to use an enum value in the same transaction that added it ("unsafe
+-- use of new value"), and migrations run one transaction per file.
+--
+-- Enum values cannot be dropped once added, so this is a one-way change.
+alter type event_type add value if not exists 'hair_cutting';
+alter type event_type add value if not exists 'baby_shower';
+alter type event_type add value if not exists 'engagement';
+alter type event_type add value if not exists 'anniversary';
+alter type event_type add value if not exists 'reunion';
+alter type event_type add value if not exists 'housewarming';
+alter type event_type add value if not exists 'corporate';

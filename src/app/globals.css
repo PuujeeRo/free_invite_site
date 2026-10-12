@@ -107,6 +107,66 @@ body {
   animation: naashir-sheen 7s ease-in-out 1.2s infinite;
 }
 
+/* Card effects (components/templates/CardEffect.tsx). Durations and delays
+   are set inline per particle; these only define the motion itself. The
+   falling/rising wrappers are the full height of the card, so a percentage
+   translate moves a particle by a fraction of the card. */
+@keyframes naashir-fall {
+  from {
+    transform: translateY(-8%);
+  }
+  to {
+    transform: translateY(108%);
+  }
+}
+
+@keyframes naashir-rise {
+  0% {
+    transform: translateY(108%);
+    opacity: 0;
+  }
+  15%,
+  80% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-8%);
+    opacity: 0;
+  }
+}
+
+@keyframes naashir-sway {
+  0%,
+  100% {
+    transform: translateX(-7px);
+  }
+  50% {
+    transform: translateX(7px);
+  }
+}
+
+@keyframes naashir-tumble {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-fall {
+  animation: naashir-fall linear infinite;
+}
+
+.animate-rise {
+  animation: naashir-rise linear infinite;
+}
+
+.animate-sway {
+  animation: naashir-sway 3.6s ease-in-out infinite;
+}
+
+.animate-tumble {
+  animation: naashir-tumble 2.6s linear infinite;
+}
+
 /* Respect the OS "reduce motion" setting: decorative loops stop entirely, and
    entrance animations resolve to their final state instead of being skipped
    mid-way (which would leave elements faded out). */
@@ -122,5 +182,43 @@ body {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+
+  /* Particle effects are removed rather than frozen: stopped mid-flight they
+     are just dots scattered over the invitation. */
+  .card-effect-motion {
+    display: none;
+  }
+}
+
+/* Scroll reveal for landing sections.
+
+   Motivated, not decorative: the steps and the pricing describe a sequence, so
+   they arrive as the reader reaches them instead of all being present at once.
+
+   Native CSS scroll-driven animation, no library (Motion is not a dependency
+   here). The whole thing sits inside @supports, so a browser without
+   animation-timeline never gets the opacity:0 starting state and simply shows
+   the content -- the failure mode of this technique is otherwise an invisible
+   page. prefers-reduced-motion opts out for the same reason. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      opacity: 0;
+      animation: naashir-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 28%;
+    }
+  }
+}
+
+@keyframes naashir-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

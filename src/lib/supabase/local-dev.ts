@@ -90,6 +90,43 @@ export async function clearLocalDevSession(): Promise<void> {
   cookieStore.delete(LOCAL_DEV_SESSION_COOKIE);
 }
 
+// Retries a request once when the connection is reset before any response
+// arrives.
+//
+// In local dev, supabase-js talks to NEXT_PUBLIC_SUPABASE_URL (the Next server)
+// and a rewrite forwards /rest/v1/* to PostgREST (see next.config.ts). Both hops
+// pool keep-alive connections, and PostgREST closes idle ones on its own
+// schedule, so a request that picks a socket the other end has just closed dies
+// with ECONNRESET ("socket hang up") before it is ever sent. Retrying gets a
+// fresh connection and succeeds.
+//
+// Safe to retry blindly here because the failure is "never reached the server":
+// no response, no side effect. A reset mid-response is NOT retried -- that one
+// may have committed a write, so it is surfaced to the caller instead.
+//
+// Local-dev only. Against a real Supabase project there is no rewrite hop, and
+// this module is inert anyway.
+async function retryingFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (err) {
+    if (!isConnectionReset(err)) throw err;
+    return await fetch(input, init);
+  }
+}
+
+function isConnectionReset(err: unknown): boolean {
+  for (let e: unknown = err, depth = 0; e && depth < 4; depth += 1) {
+    const candidate = e as { code?: string; message?: string; cause?: unknown };
+    if (candidate.code === "ECONNRESET" || candidate.code === "UND_ERR_SOCKET") return true;
+    if (typeof candidate.message === "string" && candidate.message.includes("socket hang up")) {
+      return true;
+    }
+    e = candidate.cause;
+  }
+  return false;
+}
+
 // Drop-in for createClient() in server.ts: same Database-typed SupabaseClient
 // shape, so every existing call site (`.from(...)`, `.auth.getUser()`,
 // `.auth.signOut()`) works completely unchanged regardless of which mode is
@@ -104,7 +141,10 @@ export async function createLocalDevServerClient(): Promise<SupabaseClient<Datab
 
   const client = createSupabaseClient<Database>(getSupabaseUrl(), token || "anon", {
     auth: { autoRefreshToken: false, persistSession: false },
-    global: token ? { headers: { Authorization: `Bearer ${token}` } } : {},
+    global: {
+      fetch: retryingFetch,
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+    },
   });
 
   client.auth.getUser = (async () => {

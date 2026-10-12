@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { InvitationCard } from "@/components/templates/InvitationCard";
 import { DemoRsvpWidget } from "@/components/rsvp/DemoRsvpWidget";
 import { TEMPLATES } from "@/lib/templates";
+import { PAYMENTS_ENABLED } from "@/lib/event-types";
+import { buildGoogleCalendarUrl } from "@/lib/calendar";
 import { SAMPLE_EVENTS, demoPhotoDataUri, demoEventDate } from "@/lib/demo-data";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -13,7 +15,9 @@ export function DemoClient() {
   const { dict: t } = useI18n();
   const [sampleId, setSampleId] = useState(SAMPLE_EVENTS[0].id);
   const [templateId, setTemplateId] = useState(SAMPLE_EVENTS[0].defaultTemplateId);
-  const [paidPreview, setPaidPreview] = useState(false);
+  // With payments off the extras are simply part of every invitation, so the
+  // demo shows them from the start instead of behind the (hidden) toggle.
+  const [paidPreview, setPaidPreview] = useState(!PAYMENTS_ENABLED);
 
   const sample = SAMPLE_EVENTS.find((s) => s.id === sampleId) ?? SAMPLE_EVENTS[0];
   const { date, time } = useMemo(() => demoEventDate(21), []);
@@ -45,11 +49,23 @@ export function DemoClient() {
             photoUrl={demoPhotoDataUri(sample.photoEmoji, sample.photoColors)}
             templateId={templateId}
             isPaid={paidPreview}
+            // ...but the watermark stays, exactly as on a real unpaid event.
+            showWatermark={PAYMENTS_ENABLED ? !paidPreview : true}
+            calendarUrl={buildGoogleCalendarUrl({
+              title: sample.name,
+              date,
+              time,
+              location: sample.location,
+              description: sample.description,
+            })}
+            calendarLabel={t.invite.addToCalendar}
             countdownEnabled
             mapLink={paidPreview ? "https://maps.google.com" : null}
             mapLinkLabel={t.invite.viewMap}
             watermarkText={t.invite.watermark}
-            theme={paidPreview ? { accentColor: sample.photoColors[1] } : undefined}
+            // The accent override is a choice an organizer makes, not a
+            // default, so it is only demonstrated by the paid toggle.
+            theme={PAYMENTS_ENABLED && paidPreview ? { accentColor: sample.photoColors[1] } : undefined}
             countdownLabels={countdownLabelsFrom(t)}
           />
           <DemoRsvpWidget />
@@ -97,14 +113,16 @@ export function DemoClient() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={paidPreview}
-              onChange={(e) => setPaidPreview(e.target.checked)}
-            />
-            {t.demo.paidToggleLabel}
-          </label>
+          {PAYMENTS_ENABLED && (
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={paidPreview}
+                onChange={(e) => setPaidPreview(e.target.checked)}
+              />
+              {t.demo.paidToggleLabel}
+            </label>
+          )}
 
           <Link
             href="/login"

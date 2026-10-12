@@ -33,6 +33,69 @@ Schema lives in `supabase/migrations/`. Apply it against your Supabase project (
 - Everything guest-facing (public invite page, RSVP submit, named-guest link lookup, payment webhook, email send) goes through **server route handlers using the service-role key**, which bypasses RLS and enforces its own checks.
 - The free-plan guest limit (10 or 100 depending on event type) is enforced by a **database trigger** on `rsvps`, not just app logic, so it can't be bypassed regardless of which key performs the insert.
 
+## Payments (QPay)
+
+QPay is not a hosted-checkout gateway. Its `POST /invoice` call returns a QR
+payload plus a list of per-bank deeplinks, and the merchant renders its own
+checkout surface from them, so this app does exactly that:
+
+1. `startCheckout` inserts a `pending` payment row, calls QPay, and stores the
+   returned QR image, QR text, short URL and bank deeplinks on that row
+   (`payments.checkout`, added in `0004_qpay_checkout.sql`).
+2. The organizer lands on `/pay/qpay/[paymentId]`, a server-rendered page
+   scoped by RLS to the organizer who owns the event. It shows the QR and a
+   grid of bank-app buttons.
+3. Confirmation arrives on two independent paths, because either one alone
+   leaves a real gap:
+   - `/api/payments/qpay/webhook` is QPay's server-to-server callback. The ping
+     is unauthenticated, so it is only ever treated as a hint to re-check the
+     real status via `POST /payment/check`.
+   - `/api/payments/qpay/check` is polled by the checkout page (every 3s, and
+     immediately when the tab becomes visible again, which is the moment the
+     payer returns from their banking app). It runs the same `/payment/check`
+     verification, so the upgrade unlocks on the screen the organizer is
+     actually looking at instead of after a manual refresh.
+
+Both paths funnel into the same idempotent `markPaymentPaid`, so a payment
+confirmed twice flips the event to paid exactly once.
+
+Set `QPAY_CLIENT_ID`, `QPAY_CLIENT_SECRET` and `QPAY_INVOICE_CODE` to activate
+it. With them unset the mock provider takes over and drives the same flow
+through a local checkout page. `QPAY_BASE_URL` points the integration at QPay's
+sandbox while testing.
+
+### Verifying the integration
+
+QPay publishes no versioned OpenAPI spec and has renamed response fields
+between merchant integrations, so the field names are confirmed by asking the
+live API rather than by trusting the docs:
+
+```bash
+npx tsx scripts/verify-qpay.ts   # reads .env.local
+```
+
+It authenticates, creates one invoice, prints the response's shape (never the
+credentials), checks the payment status, and deletes the probe invoice again.
+
+Two things that probe established against a live merchant account, both of
+which the code now depends on:
+
+- **`expires_in` is an absolute Unix timestamp, not a duration**, despite the
+  OAuth-style name. Treating it as a duration puts the token cache's expiry tens
+  of thousands of years out, so the token is never refreshed and every call 401s
+  permanently once QPay expires it for real. `expiryToEpochMs` handles both
+  interpretations; the probe asserts the parsed expiry is believable.
+- **`urls` comes back as an array of 23 bank deeplinks** (`qPay wallet`,
+  `Khan bank`, `TDB`, `Social Pay`, `Monpay`, and so on), each with a name, a
+  logo and a deeplink, and the QR arrives as `qr_image`/`qr_text` rather than
+  the `qPay_QRimage`/`qPay_QRcode` spellings some integrations report. The
+  parser accepts both spellings and `urls` in either array or object form.
+
+What the probe does **not** cover is a real payment: nothing here has been
+through an actual bank transfer, so the callback payload and the `PAID` row
+shape from `/payment/check` are still unconfirmed. Make one small real payment
+before taking money from customers.
+
 ## Project structure
 
 ```
@@ -102,8 +165,26 @@ npx tsx scripts/verify-cover-media.ts
 
 It asserts the adversarial cases specifically: HTML and SVG declared as
 `image/png` are rejected, and a still image renamed `.gif` cannot borrow the
-larger GIF allowance. `supabase/migrations/0004_cover_media_limits.sql` applies
+larger GIF allowance. `supabase/migrations/0006_cover_media_limits.sql` applies
 the same constraints at the bucket, for anything that bypasses the app.
+
+## Testing links and the image proxy
+
+Several fields take text an organizer typed and turn it into an `href`, an
+`<img src>`, or an address our own server fetches: the map location, the video
+link, the slider image links, and `/api/img`, which fetches external slider
+images and crops them with sharp. Those rules have their own suite, with no
+database or network:
+
+```bash
+npx tsx --conditions=react-server scripts/verify-links.ts
+```
+
+It covers the hostile cases: `javascript:` and `data:` links, plain-http images,
+loopback / private-network / cloud-metadata addresses for the proxy, and
+tampered or missing proxy signatures. `/api/img` only serves links signed with
+`IMAGE_PROXY_SECRET` (falling back to `SUPABASE_SERVICE_ROLE_KEY`), so it cannot
+be used as an open proxy.
 
 ## Payments
 

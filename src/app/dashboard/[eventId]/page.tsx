@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { invitationUrl } from "@/lib/site-url";
 import { daysRemaining } from "@/lib/time";
+import { isGreeting } from "@/lib/greeting";
+import { PAYMENTS_ENABLED } from "@/lib/event-types";
 import { getLocale } from "@/i18n/get-locale";
 import { getDictionary } from "@/i18n/dictionaries";
 import { CopyLinkButton } from "@/components/share/CopyLinkButton";
@@ -58,12 +60,15 @@ export default async function EventOverviewPage({
           <Link href={`/dashboard/${event.id}/edit`} className="text-sm font-medium underline underline-offset-4">
             {t.edit.title}
           </Link>
-          <Link
-            href={`/dashboard/${event.id}/guests`}
-            className="text-sm font-medium underline underline-offset-4"
-          >
-            {t.eventOverview.viewResponses}
-          </Link>
+          {/* A greeting collects no RSVPs, so there are no responses to view. */}
+          {!isGreeting(event) && (
+            <Link
+              href={`/dashboard/${event.id}/guests`}
+              className="text-sm font-medium underline underline-offset-4"
+            >
+              {t.eventOverview.viewResponses}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -75,13 +80,17 @@ export default async function EventOverviewPage({
 
       {!event.is_paid && (
         <div className="mt-4 flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          {/* The days-left status stays even with payments off: the 7-day
+              limit still applies, only the way to buy out of it is hidden. */}
           <span>{freeStatusLabel}</span>
-          <Link
-            href={`/dashboard/${event.id}/upgrade`}
-            className="font-medium underline underline-offset-4"
-          >
-            {t.eventOverview.upgrade}
-          </Link>
+          {PAYMENTS_ENABLED && (
+            <Link
+              href={`/dashboard/${event.id}/upgrade`}
+              className="font-medium underline underline-offset-4"
+            >
+              {t.eventOverview.upgrade}
+            </Link>
+          )}
         </div>
       )}
 

@@ -2,11 +2,22 @@ import type { OrnamentMotif } from "@/lib/templates";
 
 // Decorative divider under the greeting. Pure currentColor SVG so it inherits
 // the template accent (or the paid custom accent) with no extra plumbing.
-export function Ornament({ motif, className = "" }: { motif: OrnamentMotif; className?: string }) {
+export function Ornament({
+  motif,
+  className = "",
+  compact = false,
+}: {
+  motif: OrnamentMotif;
+  className?: string;
+  // Thumbnail size for the template picker. A prop rather than a className
+  // override because two width utilities on one element resolve by stylesheet
+  // order, not by the order they are written in.
+  compact?: boolean;
+}) {
   return (
     <svg
       viewBox="0 0 140 14"
-      className={`h-3 w-24 sm:w-32 ${className}`}
+      className={`${compact ? "h-1.5 w-12" : "h-3 w-24 sm:w-32"} ${className}`}
       fill="none"
       stroke="currentColor"
       aria-hidden="true"
@@ -64,6 +75,42 @@ function Motif({ motif }: { motif: OrnamentMotif }) {
           <circle cx="76" cy="11.5" r="1.4" fill="currentColor" stroke="none" />
         </>
       );
+    case "heart":
+      return (
+        <path
+          d="M70 12 C 62 7.5, 64 2, 67.6 2.4 C 69 2.6, 70 3.8, 70 4.8 C 70 3.8, 71 2.6, 72.4 2.4 C 76 2, 78 7.5, 70 12 Z"
+          strokeWidth="1.1"
+          strokeLinejoin="round"
+        />
+      );
+    case "sun":
+      return (
+        <>
+          <circle cx="70" cy="7" r="2.8" strokeWidth="1.1" />
+          <path
+            d="M70 0.8 V2.4 M70 11.6 V13.2 M63.8 7 H65.4 M74.6 7 H76.2 M65.6 2.6 L66.7 3.7 M73.3 10.3 L74.4 11.4 M74.4 2.6 L73.3 3.7 M66.7 10.3 L65.6 11.4"
+            strokeWidth="1"
+            strokeLinecap="round"
+          />
+        </>
+      );
+    case "knot":
+      return (
+        <>
+          <path d="M66 2 L71 7 L66 12 L61 7 Z" strokeWidth="1.1" strokeLinejoin="round" />
+          <path d="M74 2 L79 7 L74 12 L69 7 Z" strokeWidth="1.1" strokeLinejoin="round" />
+        </>
+      );
+    case "house":
+      return (
+        <>
+          <path d="M62.5 8 L70 2 L77.5 8" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M65 7 V12.4 H75 V7" strokeWidth="1.1" strokeLinejoin="round" />
+          <path d="M69 12.4 V9.6 H71 V12.4" strokeWidth="1" />
+        </>
+      );
+    case "diamond":
+      return <path d="M70 3.6 L73.4 7 L70 10.4 L66.6 7 Z" fill="currentColor" stroke="none" />;
     case "floral":
     default:
       return (
