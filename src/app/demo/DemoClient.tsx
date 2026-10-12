@@ -4,10 +4,17 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { InvitationCard } from "@/components/templates/InvitationCard";
 import { DemoRsvpWidget } from "@/components/rsvp/DemoRsvpWidget";
-import { TEMPLATES } from "@/lib/templates";
+import { TemplatePicker } from "@/components/templates/TemplatePicker";
+import { EffectField } from "@/components/templates/EffectField";
+import { CoverBackgroundField } from "@/components/media/CoverBackgroundField";
+import { CoverIconField } from "@/components/media/CoverIconField";
+import { CoverLayoutField } from "@/components/media/CoverLayoutField";
+import { coverBackgroundUrl } from "@/lib/cover-backgrounds";
+import { DEFAULT_CARD_EFFECT, type CardEffect, type CoverBackground } from "@/lib/theme";
+import type { CoverLayout } from "@/lib/supabase/types";
 import { PAYMENTS_ENABLED } from "@/lib/event-types";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
-import { SAMPLE_EVENTS, demoPhotoDataUri, demoEventDate } from "@/lib/demo-data";
+import { SAMPLE_EVENTS, demoEventDate } from "@/lib/demo-data";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -18,6 +25,12 @@ export function DemoClient() {
   // With payments off the extras are simply part of every invitation, so the
   // demo shows them from the start instead of behind the (hidden) toggle.
   const [paidPreview, setPaidPreview] = useState(!PAYMENTS_ENABLED);
+  // The same choices, with the same controls and starting values, as the
+  // new-invitation form: what a visitor tries here is what they get there.
+  const [coverBackground, setCoverBackground] = useState<CoverBackground>("auto");
+  const [coverIcon, setCoverIcon] = useState<string | null>(null);
+  const [coverLayout, setCoverLayout] = useState<CoverLayout>("top");
+  const [effect, setEffect] = useState<CardEffect>(DEFAULT_CARD_EFFECT);
 
   const sample = SAMPLE_EVENTS.find((s) => s.id === sampleId) ?? SAMPLE_EVENTS[0];
   const { date, time } = useMemo(() => demoEventDate(21), []);
@@ -46,7 +59,8 @@ export function DemoClient() {
             eventTime={time}
             location={sample.location}
             description={sample.description}
-            photoUrl={demoPhotoDataUri(sample.photoEmoji, sample.photoColors)}
+            photoUrl={coverBackgroundUrl(coverBackground, sample.eventType, coverLayout, coverIcon)}
+            coverLayout={coverLayout}
             templateId={templateId}
             isPaid={paidPreview}
             // ...but the watermark stays, exactly as on a real unpaid event.
@@ -65,13 +79,13 @@ export function DemoClient() {
             watermarkText={t.invite.watermark}
             // The accent override is a choice an organizer makes, not a
             // default, so it is only demonstrated by the paid toggle.
-            theme={PAYMENTS_ENABLED && paidPreview ? { accentColor: sample.photoColors[1] } : undefined}
+            theme={{ effect, ...(PAYMENTS_ENABLED && paidPreview ? { accentColor: sample.photoColors[1] } : {}) }}
             countdownLabels={countdownLabelsFrom(t)}
           />
           <DemoRsvpWidget />
         </div>
 
-        <div className="flex w-full max-w-md flex-col gap-6 lg:max-w-xs">
+        <div className="flex w-full max-w-md flex-col gap-6 lg:max-w-md">
           <div>
             <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t.demo.sampleEventLabel}</p>
             <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
@@ -92,24 +106,23 @@ export function DemoClient() {
             </div>
           </div>
 
+          <TemplatePicker
+            eventType={sample.eventType}
+            value={templateId}
+            onChange={setTemplateId}
+            previewName={sample.name}
+          />
+
+          <CoverBackgroundField eventType={sample.eventType} value={coverBackground} onChange={setCoverBackground} />
+          {coverBackground !== "none" && (
+            <CoverIconField eventType={sample.eventType} value={coverIcon} onChange={setCoverIcon} />
+          )}
+          <CoverLayoutField value={coverLayout} onChange={setCoverLayout} />
+
           <div>
-            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t.demo.templateLabel}</p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => setTemplateId(template.id)}
-                  className={`overflow-hidden rounded-lg border ${
-                    template.id === templateId
-                      ? "border-zinc-900 ring-1 ring-zinc-900 dark:border-zinc-50 dark:ring-zinc-50"
-                      : "border-zinc-300 dark:border-zinc-700"
-                  }`}
-                  title={template.name}
-                >
-                  <div className={`h-8 w-full bg-gradient-to-br ${template.gradient}`} />
-                </button>
-              ))}
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t.newEvent.stepEffect}</p>
+            <div className="mt-2">
+              <EffectField value={effect} onChange={setEffect} />
             </div>
           </div>
 

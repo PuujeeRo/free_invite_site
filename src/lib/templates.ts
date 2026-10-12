@@ -64,7 +64,7 @@ export const TEMPLATES: Template[] = [
     frameBorder: "border-[#a15c3e]/20",
     divider: "bg-[#a15c3e]/25",
     chip: "bg-white/60",
-    recommendedFor: ["other", "birthday", "anniversary", "hair_cutting"],
+    recommendedFor: ["other", "birthday", "anniversary", "hair_cutting", "tsagaan_sar"],
   },
   {
     id: "elegant-gold",
@@ -78,7 +78,7 @@ export const TEMPLATES: Template[] = [
     frameBorder: "border-[#8a6a24]/25",
     divider: "bg-[#8a6a24]/25",
     chip: "bg-white/65",
-    recommendedFor: ["wedding", "anniversary", "engagement"],
+    recommendedFor: ["wedding", "anniversary", "engagement", "tsagaan_sar"],
   },
   {
     id: "midnight",
@@ -93,7 +93,7 @@ export const TEMPLATES: Template[] = [
     divider: "bg-[#c9b98a]/25",
     chip: "bg-white/10",
     uppercaseName: true,
-    recommendedFor: ["corporate", "reunion", "birthday"],
+    recommendedFor: ["corporate", "reunion", "birthday", "new_year"],
   },
   {
     id: "playful-pastel",
@@ -136,7 +136,7 @@ export const TEMPLATES: Template[] = [
     divider: "bg-[#c9a84c]/25",
     chip: "bg-white/10",
     uppercaseName: true,
-    recommendedFor: ["graduation", "corporate", "reunion"],
+    recommendedFor: ["graduation", "corporate", "reunion", "new_year"],
   },
   {
     id: "rose-quartz",
@@ -178,7 +178,7 @@ export const TEMPLATES: Template[] = [
     frameBorder: "border-[#3f6184]/20",
     divider: "bg-[#3f6184]/25",
     chip: "bg-white/60",
-    recommendedFor: ["hair_cutting", "kids_first_birthday", "reunion"],
+    recommendedFor: ["hair_cutting", "kids_first_birthday", "reunion", "tsagaan_sar"],
   },
   {
     id: "burgundy",
@@ -192,7 +192,7 @@ export const TEMPLATES: Template[] = [
     frameBorder: "border-[#d9b676]/25",
     divider: "bg-[#d9b676]/25",
     chip: "bg-white/10",
-    recommendedFor: ["wedding", "anniversary", "corporate"],
+    recommendedFor: ["wedding", "anniversary", "corporate", "new_year"],
   },
   {
     id: "forest",
@@ -207,7 +207,7 @@ export const TEMPLATES: Template[] = [
     divider: "bg-[#c9a84c]/25",
     chip: "bg-white/10",
     uppercaseName: true,
-    recommendedFor: ["corporate", "reunion", "graduation"],
+    recommendedFor: ["corporate", "reunion", "graduation", "new_year"],
   },
   {
     id: "lavender",
@@ -235,7 +235,7 @@ export const TEMPLATES: Template[] = [
     frameBorder: "border-[#9a4a1c]/20",
     divider: "bg-[#9a4a1c]/25",
     chip: "bg-white/60",
-    recommendedFor: ["hair_cutting", "kids_first_birthday", "other"],
+    recommendedFor: ["hair_cutting", "kids_first_birthday", "other", "tsagaan_sar"],
   },
   {
     id: "charcoal",
@@ -250,7 +250,7 @@ export const TEMPLATES: Template[] = [
     divider: "bg-[#d08c5b]/25",
     chip: "bg-white/10",
     uppercaseName: true,
-    recommendedFor: ["corporate", "reunion", "graduation", "birthday"],
+    recommendedFor: ["corporate", "reunion", "graduation", "birthday", "new_year"],
   },
   {
     id: "mint",
@@ -279,7 +279,7 @@ export const TEMPLATES: Template[] = [
     divider: "bg-[#55554e]/25",
     chip: "bg-white/60",
     uppercaseName: true,
-    recommendedFor: ["corporate", "wedding", "graduation", "other"],
+    recommendedFor: ["corporate", "wedding", "graduation", "other", "tsagaan_sar"],
   },
   {
     id: "peach",

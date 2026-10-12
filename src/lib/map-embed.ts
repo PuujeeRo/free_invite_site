@@ -58,7 +58,7 @@ export function parseRawCoords(text: string): Coords | null {
   return match ? valid(Number(match[1]), Number(match[2])) : null;
 }
 
-function osmLink({ lat, lng }: Coords): string {
+export function osmLink({ lat, lng }: Coords): string {
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`;
 }
 

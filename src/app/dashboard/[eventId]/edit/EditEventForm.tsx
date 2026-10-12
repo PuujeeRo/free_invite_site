@@ -11,7 +11,10 @@ import { isGreeting } from "@/lib/greeting";
 import { MAX_GALLERY_IMAGES, readGallery } from "@/lib/gallery";
 import { CoverLayoutField } from "@/components/media/CoverLayoutField";
 import { EffectField } from "@/components/templates/EffectField";
-import { parseCardEffect } from "@/lib/theme";
+import { parseCardEffect, parseCoverBackground } from "@/lib/theme";
+import { CoverBackgroundField } from "@/components/media/CoverBackgroundField";
+import { CoverIconField } from "@/components/media/CoverIconField";
+import { MapLinkField } from "@/components/media/MapLinkField";
 import { parseCoverLayout, type EventRow } from "@/lib/supabase/types";
 import type { EventTheme, EventCustomText } from "@/lib/theme";
 import { updateEvent, type EditEventState } from "./actions";
@@ -52,6 +55,8 @@ export function EditEventForm({
   const unlocked = featuresUnlocked(event.is_paid);
   const [effect, setEffect] = useState(() => parseCardEffect(theme.effect));
   const [coverLayout, setCoverLayout] = useState(() => parseCoverLayout(event.cover_layout));
+  const [coverBackground, setCoverBackground] = useState(() => parseCoverBackground(theme.cover));
+  const [coverIcon, setCoverIcon] = useState<string | null>(theme.icon ?? null);
 
   return (
     <form action={formAction} className="flex flex-col gap-10">
@@ -90,16 +95,12 @@ export function EditEventForm({
           {/* Sits with the location it belongs to rather than in the extras
               block further down. */}
           {!greeting && unlocked && (
-            <Field label={t.edit.mapLinkLabel}>
-              <input
-                name="map_link"
-                defaultValue={event.map_link ?? ""}
-                maxLength={500}
-                placeholder="https://maps.app.goo.gl/..."
-                className={inputClass}
-              />
-              <span className="text-xs text-zinc-500">{t.newEvent.mapLinkHint}</span>
-            </Field>
+            <MapLinkField
+              label={t.edit.mapLinkLabel}
+              hint={t.newEvent.mapLinkHint}
+              defaultValue={event.map_link ?? ""}
+              inputClass={inputClass}
+            />
           )}
           <Field label={greeting ? t.newEvent.messageLabel : t.newEvent.descriptionLabel}>
             <textarea
@@ -123,6 +124,10 @@ export function EditEventForm({
               {t.newEvent.galleryHint.replace("{max}", String(MAX_GALLERY_IMAGES))}
             </span>
           </Field>
+          <CoverBackgroundField eventType={event.event_type} value={coverBackground} onChange={setCoverBackground} />
+          {coverBackground !== "none" && (
+            <CoverIconField eventType={event.event_type} value={coverIcon} onChange={setCoverIcon} />
+          )}
           <CoverLayoutField value={coverLayout} onChange={setCoverLayout} />
         </div>
 

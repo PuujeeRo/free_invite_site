@@ -1,8 +1,8 @@
 import type { EventType } from "@/lib/supabase/types";
 
 // Keep this in sync with the `event_type` enum (0001_init.sql, extended in
-// 0007_more_event_types.sql) and the enforce_rsvp_limit() trigger (latest
-// definition in 0008_event_type_limits.sql). scripts/verify-db.ts fails if the
+// 0007_more_event_types.sql and 0012_seasonal_event_types.sql) and the
+// enforce_rsvp_limit() trigger (latest definition in 0013_seasonal_event_limits.sql). scripts/verify-db.ts fails if the
 // limit here and the limit the trigger enforces ever disagree for any type.
 // labelMn is also spliced into the invitation greeting ("... <labelMn>-д урьж
 // байна"), so it has to read as a noun phrase there, not only as a menu label.
@@ -24,6 +24,8 @@ export const EVENT_TYPES: {
   { id: "reunion", label: "Class Reunion", labelMn: "Анги хамт олны уулзалт", freeGuestLimit: 100 },
   { id: "housewarming", label: "Housewarming", labelMn: "Шинэ байрны найр", freeGuestLimit: 10 },
   { id: "corporate", label: "Company Event", labelMn: "Байгууллагын арга хэмжээ", freeGuestLimit: 100 },
+  { id: "new_year", label: "New Year", labelMn: "Шинэ жил", freeGuestLimit: 100 },
+  { id: "tsagaan_sar", label: "Lunar New Year", labelMn: "Цагаан сар", freeGuestLimit: 100 },
   { id: "other", label: "Other", labelMn: "Бусад", freeGuestLimit: 10 },
 ];
 
@@ -51,5 +53,16 @@ export function featuresUnlocked(isPaid: boolean): boolean {
 }
 
 export const FREE_PLAN_ACTIVE_DAYS = 7;
+
+// How long a free invitation's link can be set to work, chosen when it is
+// created. The shortest is the default (and what the database gives a row that
+// says nothing); 30 is the ceiling so that old invitations do not pile up on a
+// service nobody pays for.
+export const LINK_LIFETIME_DAYS = [FREE_PLAN_ACTIVE_DAYS, 14, 30] as const;
+
+export function parseLifetimeDays(value: unknown): number {
+  const days = Number(value);
+  return (LINK_LIFETIME_DAYS as readonly number[]).includes(days) ? days : FREE_PLAN_ACTIVE_DAYS;
+}
 export const PAID_PRICE_MNT = 999;
 export const FREE_EMAIL_SEND_LIMIT = 10;

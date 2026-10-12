@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useMemo, useState } from "react";
-import { EVENT_TYPES, featuresUnlocked } from "@/lib/event-types";
+import { EVENT_TYPES, FREE_PLAN_ACTIVE_DAYS, LINK_LIFETIME_DAYS, featuresUnlocked } from "@/lib/event-types";
 import { splitTemplates } from "@/lib/templates";
 import { useI18n } from "@/i18n/I18nProvider";
 import { CoverImageField } from "@/components/media/CoverImageField";
@@ -10,11 +10,15 @@ import { InvitationCard } from "@/components/templates/InvitationCard";
 import { withCoverLimits } from "@/lib/cover-media";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import { DemoRsvpWidget } from "@/components/rsvp/DemoRsvpWidget";
-import { sampleCoverFor } from "@/lib/demo-data";
+import { coverBackgroundColors, coverBackgroundUrl } from "@/lib/cover-backgrounds";
+import { sampleCoverEmoji } from "@/lib/demo-data";
+import { CoverBackgroundField } from "@/components/media/CoverBackgroundField";
+import { CoverIconField } from "@/components/media/CoverIconField";
+import { MapLinkField } from "@/components/media/MapLinkField";
 import { PREVIEW_DRAFT_KEY, type PreviewDraft } from "@/lib/preview-draft";
 import { CoverLayoutField } from "@/components/media/CoverLayoutField";
 import { EffectField } from "@/components/templates/EffectField";
-import { DEFAULT_CARD_EFFECT, type CardEffect } from "@/lib/theme";
+import { DEFAULT_CARD_EFFECT, type CardEffect, type CoverBackground } from "@/lib/theme";
 import { previewMapLink } from "@/lib/map-embed";
 import { MAX_GALLERY_IMAGES, galleryUrlsOrEmpty } from "@/lib/gallery";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
@@ -72,7 +76,13 @@ export function NewEventForm() {
   const [details, setDetails] = useState<Details>(EMPTY);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [coverLayout, setCoverLayout] = useState<CoverLayout>("top");
+  // A new invitation starts with a built-in cover, so the card has the shape
+  // of the demo from the first moment and what the preview shows is what gets
+  // saved. "None" is one of the choices.
+  const [coverBackground, setCoverBackground] = useState<CoverBackground>("auto");
+  const [coverIcon, setCoverIcon] = useState<string | null>(null);
   const [effect, setEffect] = useState<CardEffect>(DEFAULT_CARD_EFFECT);
+  const [lifetimeDays, setLifetimeDays] = useState<number>(FREE_PLAN_ACTIVE_DAYS);
 
   const greeting = kind === "greeting";
   // A new event is never paid yet, so this is just "are the extras open".
@@ -121,6 +131,8 @@ export function NewEventForm() {
       templateId,
       photoUrl,
       coverLayout,
+      coverBackground,
+      coverIcon,
       gallery: previewGallery,
       effect,
       name: details.name,
@@ -137,7 +149,7 @@ export function NewEventForm() {
       // Storage can be unavailable (private mode, quota). The preview link
       // then shows its "nothing to preview" message; the form is unaffected.
     }
-  }, [kind, eventType, templateId, photoUrl, coverLayout, previewGallery, effect, details, greeting]);
+  }, [kind, eventType, templateId, photoUrl, coverLayout, coverBackground, coverIcon, previewGallery, effect, details, greeting]);
 
   // Submitted by hand rather than through the form's `action` alone: React
   // resets every uncontrolled field once a form action settles, so a rejected
@@ -192,8 +204,21 @@ export function NewEventForm() {
         <section>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t.newEvent.stepType}</h2>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {EVENT_TYPES.map((type) => (
-              <label key={type.id} className={choiceClass}>
+            {EVENT_TYPES.map((type) => {
+              // Each category wears its own colours and emoji -- the same pair
+              // its built-in cover uses -- so the list can be scanned by eye
+              // instead of read tile by tile.
+              const [from, to] = coverBackgroundColors("auto", type.id) ?? ["#f3ecdf", "#e0d3bb"];
+              return (
+              <label key={type.id} className={`${choiceClass} relative overflow-hidden pl-[4.25rem]`}>
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-0 left-0 flex w-14 items-center justify-center text-xl"
+                  // Colours come from data, so they cannot be classes.
+                  style={{ backgroundImage: `linear-gradient(135deg, ${from}, ${to})` }}
+                >
+                  {sampleCoverEmoji(type.id)}
+                </span>
                 <input
                   type="radio"
                   name="event_type"
@@ -205,7 +230,8 @@ export function NewEventForm() {
                 <span className="font-medium text-zinc-900 dark:text-zinc-50">{type.labelMn}</span>
                 <span className="text-xs text-zinc-500">{type.label}</span>
               </label>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -241,15 +267,7 @@ export function NewEventForm() {
               </Field>
             )}
             {!greeting && unlocked && (
-              <Field label={t.edit.mapLinkLabel}>
-                <input
-                  name="map_link"
-                  maxLength={500}
-                  placeholder="https://maps.app.goo.gl/..."
-                  className={inputClass}
-                />
-                <span className="text-xs text-zinc-500">{t.newEvent.mapLinkHint}</span>
-              </Field>
+              <MapLinkField label={t.edit.mapLinkLabel} hint={t.newEvent.mapLinkHint} inputClass={inputClass} />
             )}
             <Field label={greeting ? t.newEvent.messageLabel : t.newEvent.descriptionLabel}>
               <textarea name="description" maxLength={400} rows={greeting ? 5 : 3} className={inputClass} />
@@ -266,6 +284,10 @@ export function NewEventForm() {
                 {t.newEvent.galleryHint.replace("{max}", String(MAX_GALLERY_IMAGES))}
               </span>
             </Field>
+            <CoverBackgroundField eventType={eventType} value={coverBackground} onChange={setCoverBackground} />
+            {coverBackground !== "none" && (
+              <CoverIconField eventType={eventType} value={coverIcon} onChange={setCoverIcon} />
+            )}
             <CoverLayoutField value={coverLayout} onChange={setCoverLayout} />
           </div>
         </section>
@@ -293,6 +315,28 @@ export function NewEventForm() {
             </div>
           </section>
         )}
+
+        <section>
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t.newEvent.lifetimeTitle}</h2>
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:max-w-sm">
+            {LINK_LIFETIME_DAYS.map((days) => (
+              <label key={days} className={`${choiceClass} items-center text-center`}>
+                <input
+                  type="radio"
+                  name="lifetime_days"
+                  value={days}
+                  checked={days === lifetimeDays}
+                  onChange={() => setLifetimeDays(days)}
+                  className="sr-only"
+                />
+                <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                  {t.newEvent.lifetimeDays.replace("{days}", String(days))}
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">{t.newEvent.lifetimeHint}</p>
+        </section>
 
         {state.error && (
           <p
@@ -345,12 +389,11 @@ export function NewEventForm() {
             eventTime={greeting ? null : details.time || null}
             location={greeting ? null : details.location || null}
             description={details.description || null}
-            // Until a cover is chosen the preview borrows a sample one, so the
-            // card has the same shape as the demo instead of collapsing to a
-            // strip of text. The note under the card says it is only a sample.
-            // The sample cover stands in only while there is no image at
+            // The built-in background shows only while there is no image at
             // all: gallery links alone are already a real cover.
-            photoUrl={photoUrl ?? (previewGallery.length > 0 ? null : sampleCoverFor(eventType))}
+            photoUrl={
+              photoUrl ?? (previewGallery.length > 0 ? null : coverBackgroundUrl(coverBackground, eventType, coverLayout, coverIcon))
+            }
             gallery={previewGallery}
             coverLayout={coverLayout}
             // Shown only once it is a link the server would accept, so a
@@ -378,11 +421,6 @@ export function NewEventForm() {
             watermarkText={t.invite.watermark}
             countdownLabels={countdownLabelsFrom(t)}
           />
-          {!photoUrl && previewGallery.length === 0 && (
-            <p className="text-center text-xs text-pretty text-zinc-500">
-              {t.newEvent.previewCoverNote}
-            </p>
-          )}
           {!greeting && <DemoRsvpWidget />}
         </div>
       </aside>

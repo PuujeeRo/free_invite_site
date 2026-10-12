@@ -1,5 +1,5 @@
 import type { CoverLayout, EventKind, EventType } from "@/lib/supabase/types";
-import type { CardEffect } from "@/lib/theme";
+import type { CardEffect, CoverBackground } from "@/lib/theme";
 
 // The unsaved invitation as the new-invitation form currently holds it. The
 // form writes this to localStorage on every change and /preview renders it, so
@@ -26,6 +26,8 @@ export interface PreviewDraft {
   templateId: string;
   photoUrl: string | null;
   coverLayout: CoverLayout;
+  coverBackground: CoverBackground;
+  coverIcon: string | null;
   gallery: string[];
   effect: CardEffect;
 }

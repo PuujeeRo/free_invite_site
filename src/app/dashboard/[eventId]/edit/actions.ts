@@ -9,7 +9,7 @@ import { isGreeting } from "@/lib/greeting";
 import { parseHttpLink } from "@/lib/safe-link";
 import { normalizeMapInput } from "@/lib/map-embed";
 import { parseGalleryUrls, readGallery } from "@/lib/gallery";
-import { buildTheme, parseCardEffect } from "@/lib/theme";
+import { buildTheme, parseCardEffect, parseCoverBackground, parseCoverIcon } from "@/lib/theme";
 import { featuresUnlocked } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
 import { parseCoverLayout, type EventRow } from "@/lib/supabase/types";
@@ -110,6 +110,10 @@ export async function updateEvent(_prevState: EditEventState, formData: FormData
     } catch {
       return { error: "generic" };
     }
+  } else if (formData.get("remove_photo") === "1" && event.photo_url) {
+    // The cover was taken off in the form. Only the reference is cleared; the
+    // card then falls back to the chosen built-in background, if any.
+    update.photo_url = null;
   }
 
   // Extras: silently ignored (not just hidden) for an event that may not have
@@ -122,6 +126,8 @@ export async function updateEvent(_prevState: EditEventState, formData: FormData
     update.theme = buildTheme({
       accentColor: accentColor && HEX_COLOR.test(accentColor) ? accentColor : null,
       effect: parseCardEffect(formData.get("effect")),
+      cover: parseCoverBackground(formData.get("cover_background")),
+      icon: parseCoverIcon(formData.get("cover_icon")),
     });
     update.custom_text = greetingOverride ? { greetingOverride } : {};
     if (videoLink?.ok) update.video_url = videoLink.url;

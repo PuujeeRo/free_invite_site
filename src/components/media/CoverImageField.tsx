@@ -28,6 +28,9 @@ export function CoverImageField({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [rejection, setRejection] = useState<CoverRejection | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The saved cover has been taken off. Submitted as `remove_photo`, which the
+  // edit action honours only when no new file comes with it.
+  const [removed, setRemoved] = useState(false);
 
   // Object URLs are a manual resource: without the revoke the blob is pinned in
   // memory for the life of the document, and picking a few large GIFs in a row
@@ -67,7 +70,20 @@ export function CoverImageField({
     onPreviewChange?.(url);
   }
 
-  const shown = previewUrl ?? currentUrl ?? null;
+  // Takes off whichever image is showing: a file just picked is un-picked
+  // (the saved cover, if any, comes back), a saved cover is marked for removal.
+  function remove() {
+    if (previewUrl) {
+      if (inputRef.current) inputRef.current.value = "";
+      setPreviewUrl(null);
+      onPreviewChange?.(null);
+    } else {
+      setRemoved(true);
+    }
+    setRejection(null);
+  }
+
+  const shown = previewUrl ?? (removed ? null : currentUrl) ?? null;
 
   return (
     <div className="flex flex-col gap-2">
@@ -84,8 +100,16 @@ export function CoverImageField({
               {t.newEvent.photoCurrent}
             </span>
           )}
+          <button
+            type="button"
+            onClick={remove}
+            className="absolute top-1 right-1 rounded-md bg-black/65 px-2 py-1 text-[11px] font-medium text-white hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+          >
+            {t.newEvent.photoRemove}
+          </button>
         </div>
       )}
+      {removed && <input type="hidden" name="remove_photo" value="1" />}
 
       {/* The native control already shows the chosen filename, so this
           component deliberately doesn't print it a second time. */}

@@ -7,12 +7,13 @@ import { Logo } from "@/components/brand/Logo";
 import { HeaderRow } from "@/components/layout/HeaderRow";
 import { InvitationCard } from "@/components/templates/InvitationCard";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
-import { SAMPLE_EVENTS, demoPhotoDataUri, demoTallCoverDataUri, demoEventDate } from "@/lib/demo-data";
+import { SAMPLE_EVENTS, demoTallCoverDataUri, demoEventDate } from "@/lib/demo-data";
 import { TEMPLATES } from "@/lib/templates";
 import { EVENT_TYPES, PAYMENTS_ENABLED } from "@/lib/event-types";
-import { TemplateMiniCard } from "@/components/templates/TemplateMiniCard";
+import { buildGoogleCalendarUrl } from "@/lib/calendar";
+import { HeroCardDeck } from "@/components/templates/HeroCardDeck";
+import type { CardEffect } from "@/lib/theme";
 import {
-  ArrowRightIcon,
   CalendarPlusIcon,
   EnvelopeSimpleOpenIcon,
   ImagesIcon,
@@ -20,26 +21,6 @@ import {
   SparkleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr";
-
-// Which templates the landing shelf shows, in order.
-const SHELF_ORDER = [
-  "classic",
-  "burgundy",
-  "rose-quartz",
-  "midnight",
-  "saffron",
-  "forest",
-  "lavender",
-  "graduation-navy",
-  "mint",
-  "charcoal",
-  "peach",
-  "steppe-sky",
-] as const;
-
-// Height offset and tilt for shelf cards, cycled. Literal class names so
-// Tailwind's scanner emits them; sm-prefixed so a phone gets a plain row.
-const SHELF_POSE = ["sm:-rotate-2", "sm:mt-8 sm:rotate-1", "sm:mt-3 sm:-rotate-1", "sm:mt-10 sm:rotate-2"] as const;
 
 // Vertical stagger for the three steps at md and up. Literal class names (not
 // interpolated) so Tailwind's scanner emits them, and md-prefixed so the
@@ -54,24 +35,31 @@ export default async function Home() {
   // same card component and sample data the /demo page uses. A second, smaller
   // card peeks out from behind the first (see the hero markup below) purely to
   // hint at template variety -- decorative only, not a full render of it.
-  const hero = SAMPLE_EVENTS[0];
-  const heroBehind = SAMPLE_EVENTS[1];
+  // The hero leads with a New Year party rather than the wedding every
+  // invitation site opens on; the card peeking out behind it is a different
+  // occasion again.
+  const sampleById = (id: string) => SAMPLE_EVENTS.find((sample) => sample.id === id) ?? SAMPLE_EVENTS[0];
+  // The deck in the hero, in the order it plays. The automatic greeting
+  // splices the event's name and its category together, which for the New Year
+  // card would say "New Year" twice, so that one carries its own line.
+  const heroDeck: {
+    sample: (typeof SAMPLE_EVENTS)[number];
+    colors: [string, string];
+    effect: CardEffect;
+    greeting?: string;
+  }[] = [
+    { sample: sampleById("new_year"), colors: ["#24507a", "#0d2a23"], effect: "snow", greeting: t.landing.heroCardGreeting },
+    { sample: sampleById("tsagaan_sar"), colors: ["#e9c77c", "#8f4f2a"], effect: "sparkle" },
+    { sample: sampleById("wedding"), colors: ["#e7b9b3", "#7c4352"], effect: "hearts" },
+  ];
+  const heroBehind = sampleById("anniversary");
   const { date, time } = demoEventDate(21);
   const behindDate = demoEventDate(45);
 
   // "From 999₮" is only true while there is something to buy; otherwise the
   // third chip just says the product is free.
-  // The count is read from the catalogue so the copy cannot drift from it. The
-  // gallery below shows only the first six; the full set lives in the picker.
+  // The count is read from the catalogue so the copy cannot drift from it.
   const templateCount = String(TEMPLATES.length);
-  // Twelve of them for the shelf, ordered so light and dark papers alternate
-  // and no two neighbours share a palette. Each carries a sample name from a
-  // matching occasion, so the shelf reads as invitations, not as blanks.
-  const shelf = SHELF_ORDER.flatMap((id, i) => {
-    const template = TEMPLATES.find((item) => item.id === id);
-    return template ? [{ template, name: SAMPLE_EVENTS[i % SAMPLE_EVENTS.length].name }] : [];
-  });
-
   const features = [
     { Icon: UsersThreeIcon, title: t.landing.featureRsvpTitle, body: t.landing.featureRsvpBody },
     { Icon: MapPinIcon, title: t.landing.featureMapTitle, body: t.landing.featureMapBody },
@@ -82,7 +70,7 @@ export default async function Home() {
   ];
 
   // The sample greeting in the closing band.
-  const closing = SAMPLE_EVENTS.find((sample) => sample.id === "hair_cutting") ?? SAMPLE_EVENTS[0];
+  const closing = sampleById("baby_shower");
   const trustChips = [
     t.landing.trustTemplates.replace("{count}", templateCount),
     t.landing.trustMessenger,
@@ -152,12 +140,21 @@ export default async function Home() {
             The lg: flex/padding classes are what make header + hero fill exactly
             one viewport (see the wrapper above and the card sizing below). */}
         <section className="relative overflow-hidden bg-gradient-to-b from-amber-100/50 to-transparent px-4 pt-6 pb-16 sm:px-6 sm:pt-10 lg:flex lg:flex-1 lg:items-center lg:pt-3 lg:pb-3 dark:from-amber-950/25">
-        <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-between lg:gap-16">
-          <div className="flex max-w-xl flex-col items-center text-center lg:items-start lg:text-left">
-            <h1 className="font-display text-3xl font-medium text-balance text-zinc-900 sm:text-5xl dark:text-zinc-50">
+        {/* Large-display tier, from 1800px wide. On a big monitor the hero
+            still fills the whole screen, but its contents were sized for a
+            laptop and ended up small and adrift in it. From 1800px the text
+            steps up and (below) the card is enlarged to match.
+            Where two sizes of the SAME property meet (the heading and the
+            subtitle), the smaller one is capped with max-[1800px] so the two
+            ranges never overlap: an earlier attempt that relied on stylesheet
+            order to pick between two matching min-width rules lost that fight
+            under the dev server. */}
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-between lg:gap-16 min-[1800px]:max-w-[100rem]">
+          <div className="flex max-w-xl flex-col items-center text-center lg:items-start lg:text-left min-[1800px]:max-w-3xl">
+            <h1 className="font-display text-3xl font-medium text-balance text-zinc-900 max-[1800px]:sm:text-5xl min-[1800px]:text-7xl dark:text-zinc-50">
               {t.landing.title}
             </h1>
-            <p className="mt-4 max-w-md text-base text-pretty text-zinc-600 sm:text-lg dark:text-zinc-400">
+            <p className="mt-4 max-w-md text-base text-pretty text-zinc-600 max-[1800px]:sm:text-lg min-[1800px]:mt-6 min-[1800px]:max-w-xl min-[1800px]:text-2xl dark:text-zinc-400">
               {t.landing.subtitle}
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
@@ -227,7 +224,21 @@ export default async function Home() {
               Stated in rem, not px, so it holds under a non-16px root font as
               well as under OS display scaling. Capped at 28rem (max-w-md, the
               natural size, reached once the viewport is ~838px tall). */}
-          <div className="relative w-full max-w-md shrink-0 lg:max-w-[min(28rem,max(18rem,calc(129.87svh_-_40rem)))]">
+          {/* On a large display (1800px wide AND 1000px tall) the whole card
+              stack is enlarged by a quarter with `zoom`. zoom, unlike a
+              transform, scales the box the layout sees, so the row still
+              centres and spaces around the bigger card. The height condition
+              keeps it off wide-but-short windows, where the enlarged card
+              (about 700px) would no longer fit the one-screen hero. */}
+          {/* Below sm: the stack is inset by 1rem a side. A tilted card is wider
+              than its own box (by about its height times the sine of the tilt),
+              and at full width on a phone that pushed its corners past the
+              screen edge, where the section clips them. */}
+          {/* --hero-zoom carries the enlargement factor so the card's height
+              rule further down can divide by it: lengths inside a zoomed
+              element are themselves scaled, so "the screen height" has to be
+              asked for at 1/zoom to come out as the screen height. */}
+          <div className="relative w-full max-w-md shrink-0 max-sm:w-[calc(100%-2rem)] [zoom:var(--hero-zoom)] [--hero-zoom:1] lg:max-w-[min(28rem,max(18rem,calc(129.87svh_-_40rem)))] [@media(min-width:1800px)_and_(min-height:1000px)]:[--hero-zoom:1.25]">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -top-3 right-0 w-[88%] rotate-6 opacity-95 select-none sm:-right-3"
@@ -249,81 +260,57 @@ export default async function Home() {
             </div>
 
             <div className="animate-drift relative -rotate-2">
-              <InvitationCard
-                eventName={hero.name}
-                eventType={hero.eventType}
-                eventDate={date}
-                eventTime={time}
-                location={hero.location}
-                description={hero.description}
-                photoUrl={demoPhotoDataUri(hero.photoEmoji, hero.photoColors)}
-                templateId={hero.defaultTemplateId}
-                isPaid
-                countdownEnabled
-                mapLinkLabel={t.invite.viewMap}
-                watermarkText={t.invite.watermark}
-                countdownLabels={countdownLabelsFrom(t)}
+              {/* Three invitations taking turns. Each is the current kind of
+                  card: the cover as the whole background, an effect running,
+                  the countdown, and the map and calendar buttons guests get.
+                  No description on them: with the countdown and two buttons
+                  the text block is already tall, and one more paragraph pushed
+                  its first line up over the cover's emoji.
+                  All three share one height rule, so the deck does not change
+                  size as it rotates: from lg: up the card follows the screen
+                  (viewport minus the header, the hero's padding and room for
+                  the tilt), up to 46rem. A full-background card otherwise
+                  stops at a fixed 34rem, which left it short and adrift in a
+                  hero that is itself a full screen tall. */}
+              <HeroCardDeck
+                labels={heroDeck.map(({ sample }) => sample.name)}
+                cards={heroDeck.map(({ sample, colors, effect, greeting }) => (
+                  <InvitationCard
+                    key={sample.id}
+                    eventName={sample.name}
+                    eventType={sample.eventType}
+                    eventDate={date}
+                    eventTime={time}
+                    location={sample.location}
+                    description={null}
+                    photoUrl={demoTallCoverDataUri(sample.photoEmoji, colors, { y: 20, size: 120 })}
+                    className="lg:min-h-[min(calc((100svh_-_7.5rem)/var(--hero-zoom)),46rem)]"
+                    coverLayout="full"
+                    theme={{ effect }}
+                    customText={greeting ? { greetingOverride: greeting } : undefined}
+                    templateId={sample.defaultTemplateId}
+                    isPaid
+                    countdownEnabled
+                    mapLink="https://www.openstreetmap.org/?mlat=47.9185&mlon=106.9177#map=17/47.9185/106.9177"
+                    calendarUrl={buildGoogleCalendarUrl({
+                      title: sample.name,
+                      date,
+                      time,
+                      location: sample.location,
+                      description: sample.description,
+                    })}
+                    calendarLabel={t.invite.addToCalendar}
+                    mapLinkLabel={t.invite.viewMap}
+                    watermarkText={t.invite.watermark}
+                    countdownLabels={countdownLabelsFrom(t)}
+                  />
+                ))}
               />
             </div>
           </div>
         </div>
         </section>
       </div>
-
-      {/* Template shelf. Real miniature cards rather than colour swatches: a
-          strip of gradient cannot show that one template sets a name in a
-          serif and another in tracked capitals, which is most of what makes
-          them different. Laid out as an uneven row that scrolls sideways --
-          alternating height and a slight tilt, like cards put down on a table
-          -- instead of a grid of identical boxes. Same component the picker
-          uses, so this is exactly what is on offer. */}
-      <section className="reveal border-t border-zinc-200 py-16 sm:py-20 dark:border-zinc-800">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-            <div>
-              <h2 className="font-display text-2xl font-medium tracking-tight text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
-                {t.landing.templatesTitle}
-              </h2>
-              <p className="mt-2 max-w-[52ch] text-sm text-pretty text-zinc-600 sm:text-base dark:text-zinc-400">
-                {t.landing.templatesSubtitle.replace("{count}", templateCount)}
-              </p>
-            </div>
-            <Link
-              href="/demo"
-              className="group inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-4 transition-colors hover:decoration-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-zinc-100 dark:decoration-zinc-700 dark:hover:decoration-zinc-100"
-            >
-              {t.landing.shelfLink}
-              <ArrowRightIcon aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Full-bleed so cards run off the screen edge, which is what tells a
-            visitor there is more to scroll to. Focusable so the row can be
-            scrolled from the keyboard. */}
-        <div
-          tabIndex={0}
-          role="group"
-          aria-label={t.landing.templatesTitle}
-          className="mt-10 overflow-x-auto pb-6 [scrollbar-width:none] focus-visible:outline-none [&::-webkit-scrollbar]:hidden"
-        >
-          <ul className="mx-auto flex w-max snap-x gap-4 px-4 sm:gap-6 sm:px-6 lg:px-[max(1.5rem,calc((100vw-80rem)/2+1.5rem))]">
-            {shelf.map(({ template, name }, i) => (
-              <li
-                key={template.id}
-                className={`w-36 shrink-0 snap-start sm:w-44 ${SHELF_POSE[i % SHELF_POSE.length]}`}
-              >
-                <TemplateMiniCard
-                  template={template}
-                  name={name}
-                  className="rounded-2xl shadow-[0_10px_30px_-14px_rgba(60,40,10,0.45)] ring-1 ring-black/5"
-                />
-                <p className="mt-3 text-xs font-medium text-zinc-600 dark:text-zinc-400">{template.name}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
 
       {/* How it works. Three steps, but deliberately not three identical
           columns: each step sits lower than the one before it on desktop, so
@@ -549,7 +536,7 @@ export default async function Home() {
               eventTime={null}
               location={null}
               description={t.landing.closingCardMessage}
-              photoUrl={demoTallCoverDataUri(closing.photoEmoji, ["#e3c79a", "#8a5a3c"])}
+              photoUrl={demoTallCoverDataUri(closing.photoEmoji, ["#f0cfd2", "#9a6672"])}
               coverLayout="full"
               templateId={closing.defaultTemplateId}
               isPaid

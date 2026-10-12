@@ -19,6 +19,8 @@ export type EventType =
   | "reunion"
   | "housewarming"
   | "corporate"
+  | "new_year"
+  | "tsagaan_sar"
   | "other";
 // An invitation asks guests to RSVP; a greeting is a card sent to one person.
 export type EventKind = "invitation" | "greeting";

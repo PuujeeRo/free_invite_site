@@ -18,6 +18,7 @@ import { parseCoverLayout } from "@/lib/supabase/types";
 import { AccountButton } from "@/components/account/AccountButton";
 import { HeaderRow } from "@/components/layout/HeaderRow";
 import { readTheme, readCustomText } from "@/lib/theme";
+import { coverBackgroundUrl } from "@/lib/cover-backgrounds";
 import { FreeInviteAdSlot } from "@/components/ads/FreeInviteAdSlot";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import type { EventRow, NamedGuestRow } from "@/lib/supabase/types";
@@ -75,6 +76,13 @@ export default async function InvitePage({
     proxiedImageUrl(url, coverLayout === "full" ? "3x4" : "4x3")
   );
 
+  // With no image of its own the card falls back to the built-in background
+  // the organizer picked, if any.
+  const theme = readTheme(event.theme);
+  const photoUrl =
+    event.photo_url ??
+    (gallery.length > 0 ? null : coverBackgroundUrl(theme.cover ?? "none", event.event_type, coverLayout, theme.icon));
+
   return (
     <div className="flex flex-1 flex-col">
       <header className="px-4 py-3">
@@ -95,7 +103,7 @@ export default async function InvitePage({
           eventTime={event.event_time}
           location={event.location}
           description={event.description}
-          photoUrl={event.photo_url}
+          photoUrl={photoUrl}
           coverLayout={coverLayout}
           gallery={gallery}
           templateId={event.template_id}
@@ -121,7 +129,7 @@ export default async function InvitePage({
           mapLinkLabel={t.invite.viewMap}
           watermarkText={t.invite.watermark}
           videoUrl={httpLinkOrNull(event.video_url)}
-          theme={readTheme(event.theme)}
+          theme={theme}
           customText={readCustomText(event.custom_text)}
           countdownLabels={countdownLabelsFrom(t)}
         />

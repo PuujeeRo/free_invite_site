@@ -7,8 +7,8 @@ import { uploadEventPhoto } from "@/lib/storage";
 import { validateCoverFile } from "@/lib/cover-media";
 import { normalizeMapInput } from "@/lib/map-embed";
 import { parseGalleryUrls } from "@/lib/gallery";
-import { buildTheme, parseCardEffect } from "@/lib/theme";
-import { featuresUnlocked } from "@/lib/event-types";
+import { buildTheme, parseCardEffect, parseCoverBackground, parseCoverIcon } from "@/lib/theme";
+import { FREE_PLAN_ACTIVE_DAYS, featuresUnlocked, parseLifetimeDays } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
 import { EVENT_TYPES } from "@/lib/event-types";
 import { parseCoverLayout, type EventType } from "@/lib/supabase/types";
@@ -84,7 +84,12 @@ export async function createEvent(
     return { error: "bad_map_link" };
   }
 
-  const theme = buildTheme({ effect: parseCardEffect(formData.get("effect")) });
+  const lifetimeDays = parseLifetimeDays(formData.get("lifetime_days"));
+  const theme = buildTheme({
+    effect: parseCardEffect(formData.get("effect")),
+    cover: parseCoverBackground(formData.get("cover_background")),
+    icon: parseCoverIcon(formData.get("cover_icon")),
+  });
   const gallery = parseGalleryUrls(formData.get("gallery_urls"));
   if (!gallery.ok) {
     return { error: "bad_gallery" };
@@ -130,6 +135,11 @@ export async function createEvent(
         ...(coverLayout !== "top" ? { cover_layout: coverLayout } : {}),
         // Migration 0011, same rule: only sent when there is something to store.
         ...(gallery.urls.length > 0 ? { gallery_urls: gallery.urls } : {}),
+        // The column's own default is the 7-day lifetime, so only a longer
+        // choice is written.
+        ...(lifetimeDays !== FREE_PLAN_ACTIVE_DAYS
+          ? { expires_at: new Date(Date.now() + lifetimeDays * 24 * 60 * 60 * 1000).toISOString() }
+          : {}),
         // events.theme has existed since the first migration, so this needs no
         // such care -- it is simply left at its default unless an effect other
         // than the standard one was chosen.

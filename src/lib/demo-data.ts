@@ -109,12 +109,32 @@ export const SAMPLE_EVENTS: SampleEvent[] = [
   {
     id: "corporate",
     eventType: "corporate",
+    name: "Компанийн 10 жилийн ой",
+    location: "Улаанбаатар, Шангри-Ла",
+    description: "Арван жилийн замналаа хамт олон, түншүүдтэйгээ тэмдэглэнэ.",
+    defaultTemplateId: "graduation-navy",
+    photoEmoji: "🏢",
+    photoColors: ["#16203a", "#0a0f1c"],
+  },
+  {
+    id: "new_year",
+    eventType: "new_year",
     name: "Шинэ жилийн үдэшлэг 2027",
     location: "Улаанбаатар, Шангри-Ла",
     description: "Жилийн ажлаа дүгнэж, хамт олноороо шинэ жилээ угтацгаая.",
-    defaultTemplateId: "graduation-navy",
-    photoEmoji: "🎉",
-    photoColors: ["#16203a", "#0a0f1c"],
+    defaultTemplateId: "midnight",
+    photoEmoji: "🎄",
+    photoColors: ["#1d3b5c", "#0f2a22"],
+  },
+  {
+    id: "tsagaan_sar",
+    eventType: "tsagaan_sar",
+    name: "Сар шинийн золголт",
+    location: "Улаанбаатар, Баянзүрх дүүрэг",
+    description: "Сар шинэдээ сайхан шинэлээрэй. Манайд ирж золгож, цай уугаарай.",
+    defaultTemplateId: "saffron",
+    photoEmoji: "🥟",
+    photoColors: ["#fbf1d2", "#e9c988"],
   },
 ];
 
@@ -135,7 +155,14 @@ export function demoPhotoDataUri(emoji: string, [from, to]: [string, string]): s
 // Portrait sample cover for a card that uses its image as the whole
 // background: the emoji sits in the top third, clear of the text that the
 // "full" layout pins to the bottom of the card.
-export function demoTallCoverDataUri(emoji: string, [from, to]: [string, string]): string {
+export function demoTallCoverDataUri(
+  emoji: string,
+  [from, to]: [string, string],
+  // Where the emoji's centre sits and how big it is, in the 600x800 canvas. A
+  // card with more text under it (countdown, buttons) needs it higher and
+  // smaller to stay clear of the first line.
+  { y = 25, size = 170 }: { y?: number; size?: number } = {}
+): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800">
     <defs>
       <linearGradient id="g" x1="0" y1="0" x2="0.6" y2="1">
@@ -144,7 +171,7 @@ export function demoTallCoverDataUri(emoji: string, [from, to]: [string, string]
       </linearGradient>
     </defs>
     <rect width="600" height="800" fill="url(#g)"/>
-    <text x="50%" y="25%" font-size="170" text-anchor="middle" dominant-baseline="middle">${emoji}</text>
+    <text x="50%" y="${y}%" font-size="${size}" text-anchor="middle" dominant-baseline="middle">${emoji}</text>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -160,14 +187,15 @@ const SAMPLE_COVER_EMOJI: Record<EventType, string> = {
   graduation: "🎓",
   reunion: "🏫",
   housewarming: "🏡",
-  corporate: "🎉",
+  corporate: "🏢",
+  new_year: "🎄",
+  tsagaan_sar: "🥟",
   other: "✉️",
 };
 
-// Stand-in cover for the new-invitation preview, in the same style as the demo
-// covers above. Never stored: an invitation saved without an image has none.
-export function sampleCoverFor(eventType: EventType): string {
-  return demoPhotoDataUri(SAMPLE_COVER_EMOJI[eventType], ["#f3ecdf", "#e0d3bb"]);
+// The emoji a built-in cover carries for each occasion (lib/cover-backgrounds.ts).
+export function sampleCoverEmoji(eventType: EventType): string {
+  return SAMPLE_COVER_EMOJI[eventType];
 }
 
 // A date that's always "coming up" relative to whenever the demo is viewed,

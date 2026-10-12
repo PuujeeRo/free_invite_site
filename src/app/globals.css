@@ -104,7 +104,7 @@ body {
 }
 
 .animate-sheen {
-  animation: naashir-sheen 7s ease-in-out 1.2s infinite;
+  animation: naashir-sheen 4.5s ease-in-out 0.6s infinite;
 }
 
 /* Card effects (components/templates/CardEffect.tsx). Durations and delays
@@ -151,6 +151,26 @@ body {
   }
 }
 
+/* One firework: the rays start bunched at the centre, fly out and fade. */
+@keyframes naashir-burst {
+  0% {
+    transform: scale(0.15);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-burst {
+  animation: naashir-burst 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
 .animate-fall {
   animation: naashir-fall linear infinite;
 }
@@ -167,15 +187,44 @@ body {
   animation: naashir-tumble 2.6s linear infinite;
 }
 
+/* Landing hero deck (components/templates/HeroCardDeck.tsx): the cards are
+   stacked and cross-fade. The outgoing card fades faster than the incoming one
+   arrives, so two cards' text is never legible on top of each other. */
+.hero-deck-card {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-deck-card-shown {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition:
+    opacity 0.6s ease 0.2s,
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
+}
+
 /* Respect the OS "reduce motion" setting: decorative loops stop entirely, and
    entrance animations resolve to their final state instead of being skipped
    mid-way (which would leave elements faded out). */
 @media (prefers-reduced-motion: reduce) {
   .animate-float,
   .animate-drift,
-  .animate-twinkle,
-  .animate-sheen {
+  .animate-twinkle {
     animation: none;
+  }
+
+  /* The sheen is the default card effect. With its sweep simply switched off
+     the band sat parked outside the card, so the default looked like no effect
+     at all. Here it stays across the middle of the card and glows in and out
+     instead of travelling. */
+  .animate-sheen {
+    transform: translateX(150%) skewX(-18deg);
+    animation: naashir-twinkle 4s ease-in-out infinite;
   }
 
   .animate-fade-in-up {
@@ -184,10 +233,38 @@ body {
     transform: none;
   }
 
-  /* Particle effects are removed rather than frozen: stopped mid-flight they
-     are just dots scattered over the invitation. */
-  .card-effect-motion {
-    display: none;
+  /* Card effects are chosen on purpose by whoever made the invitation, so
+     they are not removed here -- an earlier version hid them outright, and on
+     a machine with the OS animation setting off (common on Windows, where it
+     is often switched off for speed) the feature simply looked broken.
+     Instead the travelling stops and the fading stays: each particle rests at
+     its own spot on the card (--rest, set per particle) and pulses gently in
+     place. Opacity changes are not the kind of motion this setting is about. */
+  .card-effect-motion .animate-fall,
+  .card-effect-motion .animate-rise {
+    animation: none;
+  }
+
+  .card-effect-motion .animate-fall > *,
+  .card-effect-motion .animate-rise > * {
+    top: var(--rest, 50%);
+    animation: naashir-twinkle 4.5s ease-in-out infinite;
+  }
+
+  .card-effect-motion .animate-twinkle {
+    animation: naashir-twinkle 3.2s ease-in-out infinite;
+  }
+
+  /* Fireworks keep their place and timing but only fade, without flying out. */
+  .card-effect-motion .animate-burst {
+    animation-name: naashir-twinkle;
+    animation-timing-function: ease-in-out;
+  }
+
+  /* The hero deck still rotates, as a plain fade with no rise. */
+  .hero-deck-card {
+    transform: none;
+    transition: opacity 0.6s ease;
   }
 }
 

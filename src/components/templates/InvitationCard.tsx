@@ -43,6 +43,9 @@ export interface InvitationCardProps {
   // it, but not always: while the extras are open to everyone the watermark
   // still stays on unpaid events, so a caller can state it separately.
   showWatermark?: boolean;
+  // Extra classes for the card itself, for a caller that needs to size it
+  // against its surroundings (the landing hero matches it to the screen).
+  className?: string;
   watermarkText: string;
   countdownLabels: CountdownLabels;
   videoUrl?: string | null;
@@ -72,6 +75,7 @@ export function InvitationCard({
   calendarUrl,
   calendarLabel,
   showWatermark,
+  className = "",
   watermarkText,
   countdownLabels,
   videoUrl,
@@ -137,7 +141,7 @@ export function InvitationCard({
       // so "full" can pin the text to the bottom of a card taller than it.
       className={`animate-fade-in-up relative flex w-full max-w-md flex-col overflow-hidden rounded-2xl bg-gradient-to-br shadow-[0_8px_40px_-12px_rgba(0,0,0,0.35)] sm:rounded-3xl ${template.gradient} ${
         full ? "min-h-[30rem] justify-end sm:min-h-[34rem]" : ""
-      }`}
+      } ${className}`}
     >
       {full && cover && (
         <div className="absolute inset-0">

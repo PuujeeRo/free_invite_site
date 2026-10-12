@@ -17,7 +17,9 @@ export async function AccountButton() {
   if (!user) return null;
 
   const t = getDictionary(await getLocale());
-  const initial = (user.email ?? "?").charAt(0).toUpperCase();
+  // A local/dev sign-in can have no email. A "?" there read as a help
+  // button, so a person glyph stands in instead.
+  const initial = user.email ? user.email.charAt(0).toUpperCase() : null;
   const label = user.email ? `${t.dashboard.navLabel} (${user.email})` : t.dashboard.navLabel;
 
   return (
@@ -27,7 +29,14 @@ export async function AccountButton() {
       aria-label={label}
       className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white transition-colors visited:text-white hover:bg-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
     >
-      <span aria-hidden="true">{initial}</span>
+      {initial ? (
+        <span aria-hidden="true">{initial}</span>
+      ) : (
+        <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+          <circle cx="10" cy="7" r="3.2" fill="currentColor" />
+          <path d="M3.5 17 C 3.5 13.2, 6.4 11.4, 10 11.4 C 13.6 11.4, 16.5 13.2, 16.5 17 Z" fill="currentColor" />
+        </svg>
+      )}
     </Link>
   );
 }

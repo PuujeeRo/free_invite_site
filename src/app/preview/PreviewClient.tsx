@@ -5,9 +5,9 @@ import { InvitationCard } from "@/components/templates/InvitationCard";
 import { DemoRsvpWidget } from "@/components/rsvp/DemoRsvpWidget";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import { PREVIEW_DRAFT_KEY, parsePreviewDraft } from "@/lib/preview-draft";
-import { sampleCoverFor } from "@/lib/demo-data";
+import { coverBackgroundUrl } from "@/lib/cover-backgrounds";
 import { featuresUnlocked } from "@/lib/event-types";
-import { parseCardEffect } from "@/lib/theme";
+import { parseCardEffect, parseCoverBackground, parseCoverIcon } from "@/lib/theme";
 import { buildMapEmbedUrl, previewMapLink } from "@/lib/map-embed";
 import { MapEmbed } from "@/components/templates/MapEmbed";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
@@ -70,7 +70,17 @@ export function PreviewClient() {
         eventTime={draft.time || null}
         location={draft.location || null}
         description={draft.description || null}
-        photoUrl={draft.photoUrl ?? (gallery.length > 0 ? null : sampleCoverFor(draft.eventType))}
+        photoUrl={
+          draft.photoUrl ??
+          (gallery.length > 0
+            ? null
+            : coverBackgroundUrl(
+                parseCoverBackground(draft.coverBackground),
+                draft.eventType,
+                parseCoverLayout(draft.coverLayout),
+                parseCoverIcon(draft.coverIcon)
+              ))
+        }
         gallery={gallery}
         coverLayout={parseCoverLayout(draft.coverLayout)}
         mapLink={mapLink}
@@ -94,11 +104,6 @@ export function PreviewClient() {
         watermarkText={t.invite.watermark}
         countdownLabels={countdownLabelsFrom(t)}
       />
-      {!draft.photoUrl && gallery.length === 0 && (
-        <p className="max-w-md text-center text-xs text-pretty text-zinc-500">
-          {t.newEvent.previewCoverNote}
-        </p>
-      )}
       {mapEmbed && <MapEmbed src={mapEmbed} title={t.invite.viewMap} />}
       {draft.kind !== "greeting" && <DemoRsvpWidget />}
     </div>

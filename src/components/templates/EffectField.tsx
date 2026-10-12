@@ -9,6 +9,10 @@ const GLYPH: Record<CardEffect, string> = {
   confetti: "🎊",
   snow: "❄️",
   hearts: "💗",
+  petals: "🌸",
+  balloons: "🎈",
+  fireworks: "🎆",
+  glow: "🌅",
   none: "—",
 };
 
@@ -21,13 +25,17 @@ export function EffectField({ value, onChange }: { value: CardEffect; onChange: 
     confetti: t.newEvent.effectConfetti,
     snow: t.newEvent.effectSnow,
     hearts: t.newEvent.effectHearts,
+    petals: t.newEvent.effectPetals,
+    balloons: t.newEvent.effectBalloons,
+    fireworks: t.newEvent.effectFireworks,
+    glow: t.newEvent.effectGlow,
     none: t.newEvent.effectNone,
   };
 
   return (
     <fieldset>
       <legend className="sr-only">{t.newEvent.stepEffect}</legend>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {CARD_EFFECTS.map((effect) => (
           <label
             key={effect}
