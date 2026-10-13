@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "./types";
-import { getSupabaseAnonKey, getSupabaseUrl } from "./env";
+import { getSupabaseAnonKey, getSupabaseUrl, supabaseDbOptions } from "./env";
 import { isLocalDevMode, createLocalDevServerClient } from "./local-dev";
 
 // Server client bound to the current request's session cookies. Respects RLS as
@@ -19,6 +19,7 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(getSupabaseUrl(), getSupabaseAnonKey(), {
+    db: supabaseDbOptions(),
     cookies: {
       getAll() {
         return cookieStore.getAll();

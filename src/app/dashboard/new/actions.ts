@@ -8,7 +8,7 @@ import { validateCoverFile } from "@/lib/cover-media";
 import { normalizeMapInput } from "@/lib/map-embed";
 import { parseGalleryUrls } from "@/lib/gallery";
 import { buildTheme, parseCardEffect, parseCoverBackground, parseCoverIcon } from "@/lib/theme";
-import { FREE_PLAN_ACTIVE_DAYS, featuresUnlocked, parseLifetimeDays } from "@/lib/event-types";
+import { FREE_PLAN_ACTIVE_DAYS, parseLifetimeDays } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
 import { EVENT_TYPES } from "@/lib/event-types";
 import { parseCoverLayout, type EventType } from "@/lib/supabase/types";
@@ -77,12 +77,10 @@ export async function createEvent(
   }
 
   // A greeting has no place, so no map. For an invitation the link is checked
-  // before anything is created: it becomes an href on a public page. A new
-  // event is never paid yet, hence featuresUnlocked(false).
-  const mapLink =
-    isGreeting || !featuresUnlocked(false)
-      ? ({ ok: true, url: null } as const)
-      : await normalizeMapInput(formData.get("map_link"));
+  // before anything is created: it becomes an href on a public page.
+  const mapLink = isGreeting
+    ? ({ ok: true, url: null } as const)
+    : await normalizeMapInput(formData.get("map_link"));
   if (!mapLink.ok) {
     return { error: "bad_map_link" };
   }
@@ -146,7 +144,7 @@ export async function createEvent(
         // events.theme has existed since the first migration, so this needs no
         // such care -- it is simply left at its default unless an effect other
         // than the standard one was chosen.
-        ...(featuresUnlocked(false) && Object.keys(theme).length > 0 ? { theme } : {}),
+        ...(Object.keys(theme).length > 0 ? { theme } : {}),
       })
       .select("id, slug")
       .single();

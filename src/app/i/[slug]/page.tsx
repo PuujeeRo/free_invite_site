@@ -6,7 +6,6 @@ import { getLocale } from "@/i18n/get-locale";
 import { getDictionary } from "@/i18n/dictionaries";
 import { TopControls } from "@/components/theme/TopControls";
 import { isGreeting } from "@/lib/greeting";
-import { featuresUnlocked } from "@/lib/event-types";
 import { httpLinkOrNull } from "@/lib/safe-link";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
 import { buildMapEmbedUrl } from "@/lib/map-embed";
@@ -63,11 +62,8 @@ export default async function InvitePage({
     guest = data ?? null;
   }
 
-  // Extras follow featuresUnlocked(); the watermark and the ad slot below
-  // still follow is_paid itself.
-  const unlocked = featuresUnlocked(event.is_paid);
   const greeting = isGreeting(event);
-  const mapLink = unlocked && !greeting ? httpLinkOrNull(event.map_link) : null;
+  const mapLink = !greeting ? httpLinkOrNull(event.map_link) : null;
   const mapEmbed = buildMapEmbedUrl(mapLink);
   // Gallery images are external links: route each through /api/img so it is
   // cropped to the shape of the slot it will fill (tall for a full-background
@@ -108,7 +104,7 @@ export default async function InvitePage({
           coverLayout={coverLayout}
           gallery={gallery}
           templateId={event.template_id}
-          isPaid={unlocked}
+          isPaid
           showWatermark={!event.is_paid}
           calendarUrl={
             greeting

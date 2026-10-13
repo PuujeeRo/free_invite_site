@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "dev:postgrest": "./.localdev/postgrest.exe ./.localdev/postgrest.conf"
+    "dev:postgrest": ".localdev\\postgrest.exe .localdev/postgrest.conf"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -19,8 +19,7 @@
     "react-dom": "19.2.8",
     "resend": "6.20.0",
     "server-only": "0.0.1",
-    "sharp": "0.35.3",
-    "stripe": "22.5.0"
+    "sharp": "0.35.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

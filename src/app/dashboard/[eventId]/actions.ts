@@ -7,6 +7,7 @@ import { GmailEmailProvider, disconnectGmail, getGmailConnection } from "@/lib/e
 import { buildInviteEmail } from "@/lib/email/invite-template";
 import { invitationUrl } from "@/lib/site-url";
 import { FREE_EMAIL_SEND_LIMIT } from "@/lib/event-types";
+import { isPastIso } from "@/lib/time";
 
 export type AddGuestError = "missing_event" | "required" | "generic";
 
@@ -48,7 +49,7 @@ export async function addNamedGuest(
   return {};
 }
 
-export type SendGuestEmailError = "not_found" | "no_email" | "limit_reached" | "gmail_reconnect" | "generic";
+export type SendGuestEmailError = "not_found" | "no_email" | "expired" | "limit_reached" | "gmail_reconnect" | "generic";
 
 export interface SendGuestEmailState {
   error?: SendGuestEmailError;
@@ -68,7 +69,7 @@ export async function sendGuestEmail(
   // passing another organizer's ids just gets nulls below, not their data.
   const { data: event } = await supabase
     .from("events")
-    .select("id, name, event_type, event_date, event_time, location, slug, is_paid")
+    .select("id, name, event_type, event_date, event_time, location, slug, is_paid, expires_at")
     .eq("id", eventId)
     .maybeSingle();
   const { data: guest } = await supabase
@@ -83,6 +84,10 @@ export async function sendGuestEmail(
   }
   if (!guest.email) {
     return { error: "no_email" };
+  }
+  // The link would only show "expired" to the guest, so do not send it.
+  if (!event.is_paid && isPastIso(event.expires_at)) {
+    return { error: "expired" };
   }
 
   // From the organizer's own Gmail when they have connected it, otherwise

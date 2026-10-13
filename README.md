@@ -6,7 +6,7 @@ Create an animated event invitation in a few clicks, share the link on Messenger
 
 - **Next.js** (App Router, TypeScript, Tailwind CSS v4)
 - **Supabase** — Postgres, Auth (magic link), Storage
-- **QPay/SocialPay** and **Resend** — pluggable, behind provider interfaces (mocked/log-only until real credentials are set)
+- **QPay** (tips) and **Resend** (invitation email) — behind small interfaces, logged or shown as bank details until real credentials are set
 
 ## Getting started
 
@@ -85,6 +85,16 @@ Things to know:
 
 On a hosted Supabase project the same files are pasted into the SQL Editor, one at a time, in the same order.
 
+### Sharing a Supabase project with another app
+
+The migrations install into `public`. In a project where another app already uses `public`, Naashir goes into a schema of its own instead: `scripts/hosted-schema.ts` rewrites the migrations for it (`supabase/hosted/naashir/`, generated, not edited by hand), and the app is pointed there with `NEXT_PUBLIC_SUPABASE_DB_SCHEMA`. The steps, and what the two apps still share (accounts, sign-in email, limits), are in [docs/supabase-naashir-user.md](docs/supabase-naashir-user.md).
+
+```bash
+npx tsx scripts/hosted-schema.ts build           # after adding a migration
+npx tsx scripts/hosted-schema.ts check           # fails if the generated files are stale
+npx tsx scripts/verify-hosted-schema.ts          # installs them beside a stand-in "other app" and checks both
+```
+
 ### Access model
 
 - The **browser/anon** Supabase client is only used for organizer auth and the dashboard (RLS-scoped to `organizer_id = auth.uid()`).
@@ -146,36 +156,30 @@ The site's own sender is chosen in `getEmailProvider()` (`src/lib/email/index.ts
 
 `/tip` is linked from the header of every page. With the `QPAY_*` variables set it takes a tip of any amount through QPay; without them it shows the bank details in `TIP_BANK_*`, and with neither it says tipping is not available yet. Tips unlock nothing. A tipper may ask to be listed on the page's supporters list, which shows a name and message and never the amount.
 
-## Payments (QPay)
+## Tips (QPay)
 
-QPay is not a hosted-checkout gateway. Its `POST /invoice` call returns a QR
-payload plus a list of per-bank deeplinks, and the merchant renders its own
-checkout surface from them, so this app does exactly that:
+Tips are the only money the site takes. They go through QPay, which does not
+host a checkout page: `POST /invoice` returns a QR payload and a list of
+per-bank deeplinks, and the site renders its own checkout from them.
 
-1. `startCheckout` inserts a `pending` payment row, calls QPay, and stores the
-   returned QR image, QR text, short URL and bank deeplinks on that row
-   (`payments.checkout`, added in `0004_qpay_checkout.sql`).
-2. The organizer lands on `/pay/qpay/[paymentId]`, a server-rendered page
-   scoped by RLS to the organizer who owns the event. It shows the QR and a
-   grid of bank-app buttons.
-3. Confirmation arrives on two independent paths, because either one alone
-   leaves a real gap:
-   - `/api/payments/qpay/webhook` is QPay's server-to-server callback. The ping
-     is unauthenticated, so it is only ever treated as a hint to re-check the
-     real status via `POST /payment/check`.
-   - `/api/payments/qpay/check` is polled by the checkout page (every 3s, and
-     immediately when the tab becomes visible again, which is the moment the
-     payer returns from their banking app). It runs the same `/payment/check`
-     verification, so the upgrade unlocks on the screen the organizer is
-     actually looking at instead of after a manual refresh.
+1. `startTip` (`src/app/tip/actions.ts`) inserts a `pending` row in `tips`,
+   creates the QPay invoice with the tip id as its number, and stores the QR,
+   short URL and deeplinks on that row (`tips.checkout`).
+2. The payer lands on `/tip/[tipId]`, which shows the QR and the bank-app
+   buttons, and polls `/api/tips/check` while they pay.
+3. QPay's callback at `/api/tips/webhook` is unauthenticated, so it is only a
+   prompt. Both it and the polling end in `settleTip`, which asks QPay
+   (`POST /payment/check`) before marking a tip paid.
 
-Both paths funnel into the same idempotent `markPaymentPaid`, so a payment
-confirmed twice flips the event to paid exactly once.
+Set `QPAY_CLIENT_ID`, `QPAY_CLIENT_SECRET` and `QPAY_INVOICE_CODE` to turn
+online tipping on. Without them the `/tip` page shows bank-transfer details
+from `TIP_BANK_NAME`, `TIP_BANK_ACCOUNT` and `TIP_BANK_HOLDER`; without
+those too it says tipping is not available yet. `QPAY_BASE_URL` points the
+integration at QPay's sandbox while testing.
 
-Set `QPAY_CLIENT_ID`, `QPAY_CLIENT_SECRET` and `QPAY_INVOICE_CODE` to activate
-it. With them unset the mock provider takes over and drives the same flow
-through a local checkout page. `QPAY_BASE_URL` points the integration at QPay's
-sandbox while testing.
+Tips unlock nothing, so a tip is never a payment for an invitation. The
+`payments` table and migrations `0003` to `0005` are still in the database
+from the old per-event upgrade; nothing reads or writes them now.
 
 ### Verifying the integration
 
@@ -206,8 +210,8 @@ which the code now depends on:
 
 What the probe does **not** cover is a real payment: nothing here has been
 through an actual bank transfer, so the callback payload and the `PAID` row
-shape from `/payment/check` are still unconfirmed. Make one small real payment
-before taking money from customers.
+shape from `/payment/check` are still unconfirmed. Make one small real tip
+before relying on online tipping.
 
 ## Project structure
 
@@ -300,48 +304,6 @@ loopback / private-network / cloud-metadata addresses for the proxy, and
 tampered or missing proxy signatures. `/api/img` only serves links signed with
 `IMAGE_PROXY_SECRET` (falling back to `SUPABASE_SERVICE_ROLE_KEY`), so it cannot
 be used as an open proxy.
-
-## Payments
-
-Providers sit behind one interface (`src/lib/payments/`), selected by
-`PAYMENT_PROVIDER` (`qpay` | `stripe` | `mock`) or auto-detected from whichever
-credentials are present. With none set, the mock provider drives a local
-checkout page so the whole flow works in dev.
-
-| Provider | Notes |
-|---|---|
-| `qpay` | Primary, MNT. Callback is unauthenticated, so `/api/payments/qpay/webhook` re-checks the real status via QPay's API before marking anything paid. Not yet tested against a live merchant account. |
-| `stripe` | Structure only, no account yet. Checkout Session + signature-verified webhook at `/api/payments/stripe/webhook`. |
-| `mock` | Dev default. Exercises the real create → pay → confirm path via `/pay/mock/[paymentId]`. |
-
-A pinned provider whose credentials are missing throws rather than falling back
-to `mock` — a misconfigured deploy must fail loudly, not quietly give away free
-upgrades.
-
-```bash
-npx tsx scripts/verify-payments.ts   # currency conversion + provider selection
-```
-
-### Before using Stripe, check these
-
-Stripe is wired up but **is not usable for the 999₮ per-event price**, for
-reasons that are commercial rather than technical:
-
-- **999₮ is below Stripe's minimum charge.** ~999₮ is roughly USD 0.28, under
-  Stripe's ~USD 0.50 minimum, so the charge would be rejected outright.
-- **Fees would exceed the payment.** At roughly 2.9% + USD 0.30, the fee alone
-  is larger than the whole 999₮.
-- **Mongolia is not a supported Stripe country.** Stripe accounts require a
-  business in one of its supported countries, which does not include Mongolia —
-  using it means incorporating elsewhere.
-- **MNT as a Stripe presentment currency is unverified.** `STRIPE_CURRENCY`
-  defaults to `MNT`, but confirm Stripe actually supports it for your account
-  before relying on it; otherwise set a supported currency.
-
-Where Stripe *does* fit: the Phase 2 **49,000₮/year business plan** in the
-[product plan](docs/Naashir_Product_Plan_v1.md) (~USD 14, comfortably above the
-minimum), or taking international card payments. QPay/SocialPay remain the right
-rails for the core 999₮ Mongolian flow.
 
 ## Brand assets
 

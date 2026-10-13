@@ -142,7 +142,7 @@ async function main() {
       invoice_receiver_code: process.env.QPAY_INVOICE_RECEIVER_CODE ?? "terminal",
       invoice_description: "Naashir connectivity probe",
       amount: 10,
-      callback_url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/api/payments/qpay/webhook?payment_id=${paymentId}`,
+      callback_url: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/api/tips/webhook?tip_id=${paymentId}`,
     }),
   });
 

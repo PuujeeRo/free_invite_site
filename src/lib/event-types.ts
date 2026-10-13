@@ -43,36 +43,16 @@ export const RSVP_SAFETY_CEILING = 5000;
 // read the responses for a while after the link has stopped working.
 export const EXPIRED_GRACE_DAYS = 7;
 
-// Master switch for everything that sells the paid plan: the landing pricing
-// section, the upgrade links, the upgrade page and its checkout action. False
-// while the product is free for everyone. The payment code itself (providers,
-// webhooks, /pay pages) is left intact so flipping this back is the whole job.
-// The free-plan LIMITS below are not affected by it and keep applying.
-// Typed `boolean`, not the literal `false`, so code behind it stays reachable
-// to the type checker and cannot rot while it is switched off.
-export const PAYMENTS_ENABLED: boolean = false;
-
-// Whether an event gets the features that used to be sold: accent colour,
-// custom greeting line, video, map link and countdown. While there is nothing
-// to buy they are open to every event; once payments return they go back to
-// paid events only, with no other code to change.
-// This is about FEATURES only. The free-plan limits (7-day lifetime, guest
-// cap, email cap) and the watermark still follow events.is_paid alone.
-export function featuresUnlocked(isPaid: boolean): boolean {
-  return isPaid || !PAYMENTS_ENABLED;
-}
-
 export const FREE_PLAN_ACTIVE_DAYS = 7;
 
 // How long a free invitation's link can be set to work, chosen when it is
 // created. The shortest is the default (and what the database gives a row that
 // says nothing); 30 is the ceiling so that old invitations do not pile up on a
-// service nobody pays for.
+// service that is free to use.
 export const LINK_LIFETIME_DAYS = [FREE_PLAN_ACTIVE_DAYS, 14, 30] as const;
 
 export function parseLifetimeDays(value: unknown): number {
   const days = Number(value);
   return (LINK_LIFETIME_DAYS as readonly number[]).includes(days) ? days : FREE_PLAN_ACTIVE_DAYS;
 }
-export const PAID_PRICE_MNT = 999;
 export const FREE_EMAIL_SEND_LIMIT = 10;

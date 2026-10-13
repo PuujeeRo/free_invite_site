@@ -19,8 +19,8 @@ export default async function DashboardPage() {
   const locale = await getLocale();
   const t = getDictionary(locale);
 
-  // "Live" is what the limit counts: unpaid and not yet expired. Paid events
-  // are outside it, and expired ones are on their way to being cleaned up.
+  // "Live" is what the limit counts: not yet expired. Expired ones are on
+  // their way to being cleaned up.
   const isExpired = (event: EventRow) => !event.is_paid && isPastIso(event.expires_at);
   const live = rows.filter((event) => !event.is_paid && !isExpired(event)).length;
   const atLimit = live >= MAX_LIVE_INVITATIONS;
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
                 </Link>
                 <p className="text-sm text-zinc-500 dark:text-zinc-500">
                   {event.event_date} · /{event.slug} ·{" "}
-                  {event.is_paid ? t.dashboard.paid : isExpired(event) ? t.dashboard.expired : t.dashboard.free}
+                  {isExpired(event) ? t.dashboard.expired : t.dashboard.free}
                 </p>
               </div>
               <div className="flex items-center gap-4">

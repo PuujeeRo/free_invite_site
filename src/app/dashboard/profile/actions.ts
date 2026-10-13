@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deleteEventsWithMedia } from "@/lib/event-cleanup";
 import { disconnectGmail } from "@/lib/email/gmail";
+import { isSharedSupabaseProject } from "@/lib/supabase/env";
 
 export interface ProfileState {
   saved?: boolean;
@@ -71,9 +72,18 @@ export async function deleteAccount(): Promise<ProfileState> {
     await deleteEventsWithMedia(admin, events ?? []);
     await disconnectGmail(user.id);
 
-    // Removing the auth user cascades to the profile row (0001).
-    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
-    if (deleteError) return { error: "generic" };
+    if (isSharedSupabaseProject()) {
+      // The sign-in belongs to the whole Supabase project, and so to the other
+      // app sharing it: removing it here would delete the person's account
+      // there as well. Only what is Naashir's goes -- the invitations above,
+      // and the name. The profile row stays so that signing in again works.
+      const { error: clearError } = await admin.from("profiles").update({ display_name: null }).eq("id", user.id);
+      if (clearError) return { error: "generic" };
+    } else {
+      // Removing the auth user cascades to the profile row (0001).
+      const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
+      if (deleteError) return { error: "generic" };
+    }
   } catch {
     return { error: "generic" };
   }

@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useState } from "react";
-import { EVENT_TYPES, PAYMENTS_ENABLED, featuresUnlocked } from "@/lib/event-types";
+import { EVENT_TYPES } from "@/lib/event-types";
 import { TemplatePicker } from "@/components/templates/TemplatePicker";
 import { useI18n } from "@/i18n/I18nProvider";
 import { CoverImageField } from "@/components/media/CoverImageField";
@@ -52,7 +51,6 @@ export function EditEventForm({
   const eventTypeLabel = EVENT_TYPES.find((type) => type.id === event.event_type)?.labelMn;
   const [templateId, setTemplateId] = useState(event.template_id);
   const greeting = isGreeting(event);
-  const unlocked = featuresUnlocked(event.is_paid);
   const [effect, setEffect] = useState(() => parseCardEffect(theme.effect));
   const [coverLayout, setCoverLayout] = useState(() => parseCoverLayout(event.cover_layout));
   const [coverBackground, setCoverBackground] = useState(() => parseCoverBackground(theme.cover));
@@ -94,7 +92,7 @@ export function EditEventForm({
           )}
           {/* Sits with the location it belongs to rather than in the extras
               block further down. */}
-          {!greeting && unlocked && (
+          {!greeting && (
             <MapLinkField
               label={t.edit.mapLinkLabel}
               hint={t.newEvent.mapLinkHint}
@@ -141,54 +139,40 @@ export function EditEventForm({
         </div>
       </section>
 
-      {/* Extras. Open to this event -> the fields. Not open but purchasable ->
-          the upsell. Not open and nothing to buy cannot happen (see
-          featuresUnlocked), so the section always has something to show. */}
-      {(unlocked || PAYMENTS_ENABLED) && (
       <section>
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t.edit.paidTitle}</h2>
 
-        {!unlocked ? (
-          <p className="mt-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            {t.edit.paidUpsell}{" "}
-            <Link href={`/dashboard/${event.id}/upgrade`} className="font-medium underline underline-offset-4">
-              {t.eventOverview.upgrade}
-            </Link>
-          </p>
-        ) : (
-          <div className="mt-3 flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t.newEvent.stepEffect}</span>
-              <EffectField value={effect} onChange={setEffect} />
-            </div>
-            <Field label={t.edit.accentColorLabel}>
-              <input
-                type="color"
-                name="accent_color"
-                defaultValue={theme.accentColor ?? "#18181b"}
-                className="h-10 w-16 rounded border border-zinc-300 dark:border-zinc-700"
-              />
-            </Field>
-            <Field label={t.edit.greetingOverrideLabel}>
-              <textarea
-                name="greeting_override"
-                defaultValue={customText.greetingOverride ?? ""}
-                placeholder={t.edit.greetingOverridePlaceholder}
-                rows={2}
-                className={inputClass}
-              />
-            </Field>
-            <Field label={t.edit.videoUrlLabel}>
-              <input type="url" name="video_url" defaultValue={event.video_url ?? ""} maxLength={500} placeholder="https://" className={inputClass} />
-            </Field>
-            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-              <input type="checkbox" name="countdown_enabled" defaultChecked={event.countdown_enabled} />
-              {t.edit.countdownLabel}
-            </label>
+        <div className="mt-3 flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t.newEvent.stepEffect}</span>
+            <EffectField value={effect} onChange={setEffect} />
           </div>
-        )}
+          <Field label={t.edit.accentColorLabel}>
+            <input
+              type="color"
+              name="accent_color"
+              defaultValue={theme.accentColor ?? "#18181b"}
+              className="h-10 w-16 rounded border border-zinc-300 dark:border-zinc-700"
+            />
+          </Field>
+          <Field label={t.edit.greetingOverrideLabel}>
+            <textarea
+              name="greeting_override"
+              defaultValue={customText.greetingOverride ?? ""}
+              placeholder={t.edit.greetingOverridePlaceholder}
+              rows={2}
+              className={inputClass}
+            />
+          </Field>
+          <Field label={t.edit.videoUrlLabel}>
+            <input type="url" name="video_url" defaultValue={event.video_url ?? ""} maxLength={500} placeholder="https://" className={inputClass} />
+          </Field>
+          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input type="checkbox" name="countdown_enabled" defaultChecked={event.countdown_enabled} />
+            {t.edit.countdownLabel}
+          </label>
+        </div>
       </section>
-      )}
 
       {state.error && (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">

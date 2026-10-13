@@ -2,9 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { invitationUrl } from "@/lib/site-url";
-import { daysRemaining } from "@/lib/time";
+import { daysRemaining, isPastIso } from "@/lib/time";
 import { isGreeting } from "@/lib/greeting";
-import { PAYMENTS_ENABLED } from "@/lib/event-types";
 import { getLocale } from "@/i18n/get-locale";
 import { getDictionary } from "@/i18n/dictionaries";
 import { CopyLinkButton } from "@/components/share/CopyLinkButton";
@@ -24,10 +23,10 @@ export default async function EventOverviewPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ paid?: string; gmail?: string }>;
+  searchParams: Promise<{ gmail?: string }>;
 }) {
   const { eventId } = await params;
-  const { paid, gmail: gmailResult } = await searchParams;
+  const { gmail: gmailResult } = await searchParams;
   const supabase = await createClient();
 
   const { data: event } = await supabase
@@ -60,6 +59,9 @@ export default async function EventOverviewPage({
   } = await supabase.auth.getUser();
   const gmail = gmailOffered && user ? await getGmailConnection(user.id) : null;
   const daysLeft = daysRemaining(event.expires_at);
+  // Once the link has stopped working there is nothing to email: the buttons
+  // go, and sendGuestEmail refuses as well for a request made without them.
+  const linkExpired = !event.is_paid && isPastIso(event.expires_at);
   const locale = await getLocale();
   const t = getDictionary(locale);
 
@@ -90,25 +92,9 @@ export default async function EventOverviewPage({
         </div>
       </div>
 
-      {paid === "1" && event.is_paid && (
-        <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-          {t.upgrade.paidBanner}
-        </div>
-      )}
-
       {!event.is_paid && (
         <div className="mt-4 flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          {/* The days-left status stays even with payments off: the 7-day
-              limit still applies, only the way to buy out of it is hidden. */}
           <span>{freeStatusLabel}</span>
-          {PAYMENTS_ENABLED && (
-            <Link
-              href={`/dashboard/${event.id}/upgrade`}
-              className="font-medium underline underline-offset-4"
-            >
-              {t.eventOverview.upgrade}
-            </Link>
-          )}
         </div>
       )}
 
@@ -219,7 +205,9 @@ export default async function EventOverviewPage({
                   })
                 : null;
               const compose =
-                guest.email && mail ? buildComposeLinks({ to: guest.email, subject: mail.subject, body: mail.text }) : null;
+                guest.email && mail && !linkExpired
+                  ? buildComposeLinks({ to: guest.email, subject: mail.subject, body: mail.text })
+                  : null;
               return (
                 <li key={guest.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <span className="text-sm text-zinc-800 dark:text-zinc-200">
@@ -238,7 +226,7 @@ export default async function EventOverviewPage({
                         </a>
                       </>
                     )}
-                    {guest.email && (
+                    {guest.email && !linkExpired && (
                       <SendEmailButton
                         eventId={event.id}
                         guestId={guest.id}

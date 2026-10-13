@@ -9,6 +9,7 @@ const initialState: SendGuestEmailState = {};
 const ERROR_KEY = {
   not_found: "emailErrorNotFound",
   no_email: "emailErrorNoEmail",
+  expired: "emailErrorExpired",
   limit_reached: "emailErrorLimit",
   gmail_reconnect: "emailErrorGmail",
   generic: "emailErrorGeneric",

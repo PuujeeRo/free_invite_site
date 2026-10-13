@@ -12,8 +12,9 @@ const POLL_INTERVAL_MS = 3_000;
 // polling the merchant API forever.
 const POLL_WINDOW_MS = 15 * 60 * 1000;
 
-// Shared by the event upgrade and by tips: the caller says where to ask
-// whether the invoice has been paid, and where to go once it has.
+// The QR and bank-app buttons for a QPay invoice, polling until it is paid.
+// The caller says where to ask whether it has been paid, and where to go once
+// it has.
 export function QPayCheckout({
   checkUrl,
   doneHref,

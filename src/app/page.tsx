@@ -9,7 +9,7 @@ import { InvitationCard } from "@/components/templates/InvitationCard";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import { SAMPLE_EVENTS, demoTallCoverDataUri, demoEventDate } from "@/lib/demo-data";
 import { TEMPLATES } from "@/lib/templates";
-import { EVENT_TYPES, EXPIRED_GRACE_DAYS, MAX_LIVE_INVITATIONS, PAYMENTS_ENABLED } from "@/lib/event-types";
+import { EVENT_TYPES, EXPIRED_GRACE_DAYS, MAX_LIVE_INVITATIONS } from "@/lib/event-types";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
 import { HeroCardDeck } from "@/components/templates/HeroCardDeck";
 import type { CardEffect } from "@/lib/theme";
@@ -74,7 +74,7 @@ export default async function Home() {
   const trustChips = [
     t.landing.trustTemplates.replace("{count}", templateCount),
     t.landing.trustMessenger,
-    PAYMENTS_ENABLED ? t.landing.trustPrice : t.landing.planFree,
+    t.landing.planFree,
   ];
 
   // The rules of the free service, said once and plainly. The numbers come
@@ -97,37 +97,6 @@ export default async function Home() {
     { n: "3", title: t.landing.step3Title, body: t.landing.step3Body },
   ];
 
-  // The paid column carries its own labels because a green check has to read as
-  // "you get this". On the watermark row the paid value is "none", so a check
-  // beside the plain label "Watermark" scans as watermark INCLUDED -- the exact
-  // opposite of the truth. That row states the benefit instead ("No watermark")
-  // and drops its value line, since the label already says it.
-  const pricingRows = [
-    {
-      label: t.landing.featureWatermark,
-      free: t.landing.valueYes,
-      paidLabel: t.landing.featureNoWatermark,
-      paid: null,
-    },
-    {
-      label: t.landing.featureGuestLimit,
-      free: t.landing.valueByType,
-      paidLabel: t.landing.featureGuestLimit,
-      paid: t.landing.valueUnlimited,
-    },
-    {
-      label: t.landing.featureDesign,
-      free: t.landing.valueNo,
-      paidLabel: t.landing.featureDesign,
-      paid: t.landing.valueYes,
-    },
-    {
-      label: t.landing.featureExtras,
-      free: t.landing.valueNo,
-      paidLabel: t.landing.featureExtras,
-      paid: t.landing.valueYes,
-    },
-  ];
 
   return (
     <div className="flex flex-1 flex-col">
@@ -393,163 +362,46 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* How the free service works. Takes the place of the pricing section
-          while there is nothing to buy: a visitor still wants to know what the
-          catch is, and the honest answer is a short list of rules. A numbered
-          list in two columns rather than six cards -- these are terms to read,
-          not features to browse. */}
-      {!PAYMENTS_ENABLED && (
-        <section className="reveal border-t border-zinc-200 px-4 py-16 sm:px-6 sm:py-20 dark:border-zinc-800">
-          <div className="mx-auto max-w-5xl">
-            <h2 className="font-display text-2xl font-medium tracking-tight text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
-              {t.landing.rulesTitle}
-            </h2>
-            <p className="mt-3 max-w-[56ch] text-sm text-pretty text-zinc-600 sm:text-base dark:text-zinc-400">
-              {t.landing.rulesSubtitle}
-            </p>
-            <ol className="mt-10 grid gap-x-12 gap-y-8 sm:grid-cols-2">
-              {rules.map((rule, i) => (
-                <li key={rule.title} className="flex gap-4">
-                  <span
-                    aria-hidden="true"
-                    className="font-display w-5 shrink-0 text-2xl leading-none font-medium text-amber-700 tabular-nums dark:text-amber-500"
-                  >
-                    {i + 1}
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{rule.title}</h3>
-                    <p className="mt-1 max-w-[44ch] text-sm text-pretty text-zinc-600 dark:text-zinc-400">
-                      {rule.body}
-                    </p>
-                    {rule.href && (
-                      <Link
-                        href={rule.href}
-                        className="mt-2 inline-block text-sm font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:text-zinc-100 dark:decoration-zinc-700 dark:hover:decoration-zinc-100"
-                      >
-                        {rule.linkLabel}
-                      </Link>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-      )}
-
-      {/* Pricing. Hidden while PAYMENTS_ENABLED is false (see lib/event-types):
-          there is nothing to buy, so a free-vs-paid comparison would advertise
-          a plan nobody can reach. */}
-      {PAYMENTS_ENABLED && (
+      {/* How the free service works: the rules, said once and plainly. A
+          numbered list in two columns rather than six cards -- these are terms
+          to read, not features to browse. */}
       <section className="reveal border-t border-zinc-200 px-4 py-16 sm:px-6 sm:py-20 dark:border-zinc-800">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="font-display text-center text-2xl font-medium text-zinc-900 sm:text-3xl dark:text-zinc-50">
-            {t.landing.pricingTitle}
+        <div className="mx-auto max-w-5xl">
+          <h2 className="font-display text-2xl font-medium tracking-tight text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
+            {t.landing.rulesTitle}
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-center text-sm text-pretty text-zinc-600 sm:text-base dark:text-zinc-400">
-            {t.landing.pricingSubtitle}
+          <p className="mt-3 max-w-[56ch] text-sm text-pretty text-zinc-600 sm:text-base dark:text-zinc-400">
+            {t.landing.rulesSubtitle}
           </p>
-
-          {/* Two plan cards rather than the 3-column comparison grid this used
-              to be: the grid forced every value into a shared row, so the free
-              column read as a list of things you DON'T get, and the paid column
-              carried no sense of price. Each plan now states its own price and
-              owns its feature list. Same four features in the same order on
-              both sides, so it still reads as a comparison scanning downward. */}
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:gap-5">
-            {/* free */}
-            <div className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/40">
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                {t.landing.planFree}
-              </p>
-              <p className="font-display mt-2 text-3xl font-medium text-zinc-900 dark:text-zinc-50">
-                0₮
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">{t.landing.planFreeNote}</p>
-
-              <ul className="mt-6 flex flex-col gap-3 border-t border-zinc-100 pt-5 dark:border-zinc-800">
-                {pricingRows.map((row) => (
-                  <li key={row.label} className="flex items-start gap-2.5">
-                    {/* a dash, not a cross: on the free plan these are limits
-                        rather than outright absences (the guest cap in
-                        particular is a number, not a "no") */}
-                    <span
-                      aria-hidden="true"
-                      className="mt-2 h-px w-3 shrink-0 bg-zinc-300 dark:bg-zinc-700"
-                    />
-                    {/* value stacked under the label, not beside it: several of
-                        these values are full phrases ("10 or 100 by event
-                        type", and its longer Mongolian equivalent), which
-                        squash the label badly in a half-width card */}
-                    <span className="flex-1">
-                      <span className="block text-xs text-zinc-600 sm:text-sm dark:text-zinc-400">
-                        {row.label}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-zinc-500">{row.free}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* paid */}
-            {/* ring-1 rather than border-2 for the emphasis edge: a ring is
-                painted outside the box and takes no layout space, so both cards
-                keep a 1px border box and their feature lists line up exactly.
-                border-2 here put the two lists 1px apart (measured). */}
-            <div className="relative flex flex-col rounded-2xl border border-zinc-900 bg-white p-6 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.35)] ring-1 ring-zinc-900 dark:border-zinc-50 dark:bg-zinc-900 dark:ring-zinc-50">
-              <span className="absolute -top-3 left-6 rounded-full bg-zinc-900 px-3 py-1 text-[10px] font-semibold tracking-wide text-white uppercase dark:bg-zinc-50 dark:text-zinc-900">
-                {t.landing.planPaidBadge}
-              </span>
-
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                {t.landing.planPaidName}
-              </p>
-              <p className="font-display mt-2 text-3xl font-medium text-zinc-900 dark:text-zinc-50">
-                {t.landing.planPaid}
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">{t.landing.planPaidNote}</p>
-
-              <ul className="mt-6 flex flex-col gap-3 border-t border-zinc-100 pt-5 dark:border-zinc-800">
-                {pricingRows.map((row) => (
-                  <li key={row.label} className="flex items-start gap-2.5">
-                    <svg
-                      viewBox="0 0 20 20"
-                      aria-hidden="true"
-                      className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500"
+          <ol className="mt-10 grid gap-x-12 gap-y-8 sm:grid-cols-2">
+            {rules.map((rule, i) => (
+              <li key={rule.title} className="flex gap-4">
+                <span
+                  aria-hidden="true"
+                  className="font-display w-5 shrink-0 text-2xl leading-none font-medium text-amber-700 tabular-nums dark:text-amber-500"
+                >
+                  {i + 1}
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{rule.title}</h3>
+                  <p className="mt-1 max-w-[44ch] text-sm text-pretty text-zinc-600 dark:text-zinc-400">
+                    {rule.body}
+                  </p>
+                  {rule.href && (
+                    <Link
+                      href={rule.href}
+                      className="mt-2 inline-block text-sm font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:text-zinc-100 dark:decoration-zinc-700 dark:hover:decoration-zinc-100"
                     >
-                      <path
-                        fill="currentColor"
-                        d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
-                      />
-                    </svg>
-                    <span className="flex-1">
-                      <span className="block text-xs text-zinc-700 sm:text-sm dark:text-zinc-300">
-                        {row.paidLabel}
-                      </span>
-                      {row.paid && (
-                        <span className="mt-0.5 block text-xs font-medium text-zinc-900 dark:text-zinc-50">
-                          {row.paid}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="mt-10 flex justify-center">
-            <Link
-              href="/create"
-              className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-transform visited:text-white hover:bg-zinc-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
-            >
-              {t.landing.cta}
-            </Link>
-          </div>
+                      {rule.linkLabel}
+                    </Link>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
-      )}
+
 
       {/* Closing call to action. The page used to end on the three steps with
           nowhere to go next. The band reuses the hero's amber tint so the page

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 // template literal never produces a complete class name for the scanner to find,
 // and the corresponding CSS silently never gets generated.
 export const MAX_WIDTH = {
-  sm: "max-w-sm", // ~384px -- single-column confirmation screens (upgrade, mock pay)
+  sm: "max-w-sm", // ~384px -- single-column confirmation screens
   md: "max-w-md", // ~448px -- login, narrow single-column forms
   lg: "max-w-2xl", // ~672px -- standard form screens (new event, edit, event overview)
   xl: "max-w-3xl", // ~768px -- content-dense screens (guest responses table)

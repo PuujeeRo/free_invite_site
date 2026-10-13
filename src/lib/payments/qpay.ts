@@ -1,10 +1,8 @@
-import { getSiteUrl } from "@/lib/site-url";
 import type {
   CheckoutDeeplink,
   CheckoutPayload,
   CreateInvoiceParams,
   CreateInvoiceResult,
-  PaymentProvider,
 } from "./types";
 
 // QPay Simple/v2 merchant API integration.
@@ -134,12 +132,11 @@ function parseDeeplinks(urls: unknown): CheckoutDeeplink[] {
   });
 }
 
-export class QPayProvider implements PaymentProvider {
-  name = "qpay" as const;
+export class QPayProvider {
   readonly currency = "MNT";
 
   async createInvoice({
-    paymentId,
+    invoiceNo,
     amount,
     description,
     callbackUrl,
@@ -157,11 +154,11 @@ export class QPayProvider implements PaymentProvider {
       cache: "no-store",
       body: JSON.stringify({
         invoice_code: invoiceCode,
-        sender_invoice_no: paymentId,
+        sender_invoice_no: invoiceNo,
         invoice_receiver_code: process.env.QPAY_INVOICE_RECEIVER_CODE ?? "terminal",
         invoice_description: description,
         amount,
-        callback_url: callbackUrl ?? `${getSiteUrl()}/api/payments/qpay/webhook?payment_id=${paymentId}`,
+        callback_url: callbackUrl,
       }),
     });
 
@@ -191,11 +188,10 @@ export class QPayProvider implements PaymentProvider {
 
     // Deliberately our own page, not QPay's short URL: the payer stays on the
     // site, sees the QR and their own bank's button together, and the page polls
-    // for confirmation so the upgrade unlocks without a manual refresh. The
-    // short URL is kept inside `checkout` as a fallback link.
+    // for confirmation. The short URL is kept inside `checkout` as a fallback.
     return {
       providerRef: json.invoice_id,
-      checkoutUrl: checkoutUrl ?? `${getSiteUrl()}/pay/qpay/${paymentId}`,
+      checkoutUrl,
       checkout,
     };
   }

@@ -12,7 +12,6 @@ import { CoverLayoutField } from "@/components/media/CoverLayoutField";
 import { coverBackgroundUrl } from "@/lib/cover-backgrounds";
 import { DEFAULT_CARD_EFFECT, type CardEffect, type CoverBackground } from "@/lib/theme";
 import type { CoverLayout } from "@/lib/supabase/types";
-import { PAYMENTS_ENABLED } from "@/lib/event-types";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
 import { SAMPLE_EVENTS, demoEventDate } from "@/lib/demo-data";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
@@ -24,7 +23,6 @@ export function DemoClient() {
   const [templateId, setTemplateId] = useState(SAMPLE_EVENTS[0].defaultTemplateId);
   // With payments off the extras are simply part of every invitation, so the
   // demo shows them from the start instead of behind the (hidden) toggle.
-  const [paidPreview, setPaidPreview] = useState(!PAYMENTS_ENABLED);
   // The same choices, with the same controls and starting values, as the
   // new-invitation form: what a visitor tries here is what they get there.
   const [coverBackground, setCoverBackground] = useState<CoverBackground>("auto");
@@ -62,9 +60,8 @@ export function DemoClient() {
             photoUrl={coverBackgroundUrl(coverBackground, sample.eventType, coverLayout, coverIcon)}
             coverLayout={coverLayout}
             templateId={templateId}
-            isPaid={paidPreview}
-            // ...but the watermark stays, exactly as on a real unpaid event.
-            showWatermark={PAYMENTS_ENABLED ? !paidPreview : true}
+            isPaid
+            showWatermark
             calendarUrl={buildGoogleCalendarUrl({
               title: sample.name,
               date,
@@ -74,12 +71,12 @@ export function DemoClient() {
             })}
             calendarLabel={t.invite.addToCalendar}
             countdownEnabled
-            mapLink={paidPreview ? "https://maps.google.com" : null}
+            mapLink="https://maps.google.com"
             mapLinkLabel={t.invite.viewMap}
             watermarkText={t.invite.watermark}
             // The accent override is a choice an organizer makes, not a
             // default, so it is only demonstrated by the paid toggle.
-            theme={{ effect, ...(PAYMENTS_ENABLED && paidPreview ? { accentColor: sample.photoColors[1] } : {}) }}
+            theme={{ effect }}
             countdownLabels={countdownLabelsFrom(t)}
           />
           <DemoRsvpWidget />
@@ -125,17 +122,6 @@ export function DemoClient() {
               <EffectField value={effect} onChange={setEffect} />
             </div>
           </div>
-
-          {PAYMENTS_ENABLED && (
-            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-              <input
-                type="checkbox"
-                checked={paidPreview}
-                onChange={(e) => setPaidPreview(e.target.checked)}
-              />
-              {t.demo.paidToggleLabel}
-            </label>
-          )}
 
           <Link
             href="/create"

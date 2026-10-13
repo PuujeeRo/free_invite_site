@@ -21,7 +21,12 @@ import { getSupabaseUrl } from "./env";
 
 export const LOCAL_DEV_SESSION_COOKIE = "naashir_localdev_session";
 
+// Also off in any production build or on Vercel, whatever LOCAL_DEV_MODE says:
+// this mode trusts a cookie signed with the JWT secret and lets /dev-login sign
+// in as any account, so a stray variable in a deployed environment must not
+// switch it on.
 export function isLocalDevMode(): boolean {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) return false;
   return process.env.LOCAL_DEV_MODE === "true";
 }
 

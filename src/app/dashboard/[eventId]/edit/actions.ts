@@ -10,7 +10,6 @@ import { parseHttpLink } from "@/lib/safe-link";
 import { normalizeMapInput } from "@/lib/map-embed";
 import { parseGalleryUrls, readGallery } from "@/lib/gallery";
 import { buildTheme, parseCardEffect, parseCoverBackground, parseCoverIcon } from "@/lib/theme";
-import { featuresUnlocked } from "@/lib/event-types";
 import { TEMPLATES } from "@/lib/templates";
 import { parseCoverLayout, type EventRow } from "@/lib/supabase/types";
 
@@ -61,15 +60,11 @@ export async function updateEvent(_prevState: EditEventState, formData: FormData
   if (!eventDate) return { error: "choose_date" };
   if (!TEMPLATE_IDS.has(templateId)) return { error: "choose_template" };
 
-  // Extras are read only when this event may have them (the form omits the
-  // fields otherwise) and ignored otherwise, so a hand-built request cannot
-  // set them. Both links are validated: they become an href / src on a
-  // public page.
-  const unlocked = featuresUnlocked(event.is_paid);
-  const mapLink = unlocked && !isGreeting(event) ? await normalizeMapInput(formData.get("map_link")) : null;
+  // Both links are validated: they become an href / src on a public page.
+  const mapLink = !isGreeting(event) ? await normalizeMapInput(formData.get("map_link")) : null;
   if (mapLink && !mapLink.ok) return { error: "bad_map_link" };
-  const videoLink = unlocked ? parseHttpLink(formData.get("video_url")) : null;
-  if (videoLink && !videoLink.ok) return { error: "bad_video_link" };
+  const videoLink = parseHttpLink(formData.get("video_url"));
+  if (!videoLink.ok) return { error: "bad_video_link" };
 
   const greeting = isGreeting(event);
   const update: Partial<EventRow> = {
@@ -116,24 +111,21 @@ export async function updateEvent(_prevState: EditEventState, formData: FormData
     update.photo_url = null;
   }
 
-  // Extras: silently ignored (not just hidden) for an event that may not have
-  // them, so a form submitted directly can't bypass the gate.
-  if (unlocked) {
-    const accentColor = String(formData.get("accent_color") ?? "").trim();
-    const greetingOverride = String(formData.get("greeting_override") ?? "").trim();
-    const countdownEnabled = formData.get("countdown_enabled") === "on";
+  // Extras: accent colour, custom greeting, video, map and countdown.
+  const accentColor = String(formData.get("accent_color") ?? "").trim();
+  const greetingOverride = String(formData.get("greeting_override") ?? "").trim();
+  const countdownEnabled = formData.get("countdown_enabled") === "on";
 
-    update.theme = buildTheme({
-      accentColor: accentColor && HEX_COLOR.test(accentColor) ? accentColor : null,
-      effect: parseCardEffect(formData.get("effect")),
-      cover: parseCoverBackground(formData.get("cover_background")),
-      icon: parseCoverIcon(formData.get("cover_icon")),
-    });
-    update.custom_text = greetingOverride ? { greetingOverride } : {};
-    if (videoLink?.ok) update.video_url = videoLink.url;
-    if (mapLink?.ok) update.map_link = mapLink.url;
-    update.countdown_enabled = countdownEnabled;
-  }
+  update.theme = buildTheme({
+    accentColor: accentColor && HEX_COLOR.test(accentColor) ? accentColor : null,
+    effect: parseCardEffect(formData.get("effect")),
+    cover: parseCoverBackground(formData.get("cover_background")),
+    icon: parseCoverIcon(formData.get("cover_icon")),
+  });
+  update.custom_text = greetingOverride ? { greetingOverride } : {};
+  if (videoLink.ok) update.video_url = videoLink.url;
+  if (mapLink?.ok) update.map_link = mapLink.url;
+  update.countdown_enabled = countdownEnabled;
 
   const { error } = await supabase.from("events").update(update).eq("id", eventId);
   if (error) {

@@ -47,8 +47,7 @@ export async function startTip(_prev: TipState, formData: FormData): Promise<Tip
   let checkoutPath: string;
   try {
     const invoice = await new QPayProvider().createInvoice({
-      eventId: tip.id,
-      paymentId: tip.id,
+      invoiceNo: tip.id,
       amount,
       description: "Naashir tip",
       callbackUrl: `${getSiteUrl()}/api/tips/webhook?tip_id=${tip.id}`,

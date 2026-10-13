@@ -4,9 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { QPayProvider, qpayCredentials } from "@/lib/payments/qpay";
 import { TIP_MAX_MNT, TIP_MIN_MNT } from "@/lib/tip-amounts";
 
-// Tips are voluntary and unlock nothing. They are separate from `payments`,
-// which belong to an event and to the (switched-off) paid upgrade: a tip has
-// no event, and the person tipping need not have an account.
+// Tips are voluntary and unlock nothing. A tip has no event, and the person
+// tipping need not have an account.
 
 /** Online tipping needs a QPay merchant account; without one the page falls back to bank details. */
 export function tipsOnline(): boolean {

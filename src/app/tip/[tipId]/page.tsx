@@ -5,7 +5,7 @@ import { getDictionary } from "@/i18n/dictionaries";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import type { CheckoutPayload } from "@/lib/payments/types";
-import { QPayCheckout } from "@/app/pay/qpay/[paymentId]/QPayCheckout";
+import { QPayCheckout } from "@/components/tip/QPayCheckout";
 
 // The QR and bank buttons for one tip. Read with the service-role client
 // because the payer may not be signed in; the id in the URL is an unguessable

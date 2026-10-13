@@ -2,11 +2,10 @@ import { getAdSenseConfig } from "@/lib/ads/config";
 import { AdSenseScript } from "./AdSenseScript";
 import { AdSlot } from "./AdSlot";
 
-// Shown only on free-plan (unpaid) invitation pages, below the RSVP card --
-// never next to the Yes/No/Maybe buttons (accidental-click risk, and AdSense
-// policy disallows ads placed to encourage that). Paying removes both the
-// watermark and this slot: "no watermark, no ads" is part of what upgrading
-// buys, so it should never appear on a paid event regardless of config.
+// Shown on invitation pages below the RSVP card -- never next to the
+// Yes/No/Maybe buttons (accidental-click risk, and AdSense policy disallows
+// ads placed to encourage that). Every invitation is free now, so every
+// invitation page shows it.
 export function FreeInviteAdSlot() {
   const config = getAdSenseConfig();
 

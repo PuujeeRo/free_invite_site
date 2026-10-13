@@ -6,7 +6,6 @@ import { DemoRsvpWidget } from "@/components/rsvp/DemoRsvpWidget";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import { PREVIEW_DRAFT_KEY, parsePreviewDraft } from "@/lib/preview-draft";
 import { coverBackgroundUrl } from "@/lib/cover-backgrounds";
-import { featuresUnlocked } from "@/lib/event-types";
 import { parseCardEffect, parseCoverBackground, parseCoverIcon } from "@/lib/theme";
 import { buildMapEmbedUrl, previewMapLink } from "@/lib/map-embed";
 import { MapEmbed } from "@/components/templates/MapEmbed";
@@ -97,7 +96,7 @@ export function PreviewClient() {
         }
         calendarLabel={t.invite.addToCalendar}
         templateId={draft.templateId}
-        isPaid={featuresUnlocked(false)}
+        isPaid
         showWatermark
         theme={{ effect: parseCardEffect(draft.effect) }}
         mapLinkLabel={t.invite.viewMap}

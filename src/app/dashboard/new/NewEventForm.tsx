@@ -7,7 +7,6 @@ import {
   EVENT_TYPES,
   LINK_LIFETIME_DAYS,
   MAX_LIVE_INVITATIONS,
-  featuresUnlocked,
   parseLifetimeDays,
 } from "@/lib/event-types";
 import { TEMPLATES, splitTemplates } from "@/lib/templates";
@@ -135,8 +134,6 @@ export function NewEventForm({
   const [lifetimeDays, setLifetimeDays] = useState<number>(() => parseLifetimeDays(initial?.lifetime_days));
 
   const greeting = kind === "greeting";
-  // A new event is never paid yet, so this is just "are the extras open".
-  const unlocked = featuresUnlocked(false);
   // Memoised on the raw text so the array keeps its identity between renders;
   // the draft-saving effect below depends on it.
   const previewGallery = useMemo(() => galleryUrlsOrEmpty(details.gallery), [details.gallery]);
@@ -340,7 +337,7 @@ export function NewEventForm({
                 <input name="location" defaultValue={initial?.location ?? ""} maxLength={140} className={inputClass} />
               </Field>
             )}
-            {!greeting && unlocked && (
+            {!greeting && (
               <MapLinkField
                 label={t.edit.mapLinkLabel}
                 hint={t.newEvent.mapLinkHint}
@@ -393,14 +390,12 @@ export function NewEventForm({
           </div>
         </section>
 
-        {unlocked && (
-          <section>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t.newEvent.stepEffect}</h2>
-            <div className="mt-3">
-              <EffectField value={effect} onChange={setEffect} />
-            </div>
-          </section>
-        )}
+        <section>
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t.newEvent.stepEffect}</h2>
+          <div className="mt-3">
+            <EffectField value={effect} onChange={setEffect} />
+          </div>
+        </section>
 
         <section>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t.newEvent.lifetimeTitle}</h2>
@@ -500,9 +495,8 @@ export function NewEventForm({
             }
             calendarLabel={t.invite.addToCalendar}
             templateId={templateId}
-            // Same pairing as the real guest page: extras on when unlocked,
-            // watermark still shown because nothing has been paid for.
-            isPaid={unlocked}
+            // Same pairing as the real guest page: extras on, watermark shown.
+            isPaid
             showWatermark
             theme={{ effect }}
             mapLinkLabel={t.invite.viewMap}
