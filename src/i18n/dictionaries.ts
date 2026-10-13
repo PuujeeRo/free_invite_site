@@ -5,6 +5,7 @@ const dictionaries = {
     common: {
       appName: "Naashir",
       signOut: "Sign out",
+      signIn: "Sign in",
       loading: "Loading…",
     },
     landing: {
@@ -349,6 +350,7 @@ const dictionaries = {
     common: {
       appName: "Naashir",
       signOut: "Гарах",
+      signIn: "Нэвтрэх",
       loading: "Уншиж байна…",
     },
     landing: {

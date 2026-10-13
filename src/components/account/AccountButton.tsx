@@ -14,9 +14,20 @@ export async function AccountButton() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
-
   const t = getDictionary(await getLocale());
+
+  // Signed out: a plain sign-in link, so the way in is visible on every public page.
+  if (!user) {
+    return (
+      <Link
+        href="/login"
+        className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-500 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-50 dark:focus-visible:ring-zinc-100"
+      >
+        {t.common.signIn}
+      </Link>
+    );
+  }
+
   // A local/dev sign-in can have no email. A "?" there read as a help
   // button, so a person glyph stands in instead.
   const initial = user.email ? user.email.charAt(0).toUpperCase() : null;
