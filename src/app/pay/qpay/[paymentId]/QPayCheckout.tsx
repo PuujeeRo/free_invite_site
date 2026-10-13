@@ -12,16 +12,18 @@ const POLL_INTERVAL_MS = 3_000;
 // polling the merchant API forever.
 const POLL_WINDOW_MS = 15 * 60 * 1000;
 
+// Shared by the event upgrade and by tips: the caller says where to ask
+// whether the invoice has been paid, and where to go once it has.
 export function QPayCheckout({
-  paymentId,
-  eventId,
+  checkUrl,
+  doneHref,
   qrImage,
   shortUrl,
   deeplinks,
   labels,
 }: {
-  paymentId: string;
-  eventId: string;
+  checkUrl: string; // answers { status: "paid" | ... }
+  doneHref: string;
   qrImage: string | null;
   shortUrl: string | null;
   deeplinks: CheckoutDeeplink[];
@@ -52,18 +54,14 @@ export function QPayCheckout({
       if (settled.current) return;
       setChecking(true);
       try {
-        const res = await fetch(`/api/payments/qpay/check?payment_id=${paymentId}`, {
-          signal,
-          cache: "no-store",
-        });
+        const res = await fetch(checkUrl, { signal, cache: "no-store" });
         if (!res.ok) throw new Error("check_failed");
         const json = (await res.json()) as { status?: string };
         if (json.status === "paid") {
           settled.current = true;
           setStatus("paid");
-          // Let the confirmation land before moving on, then send the organizer
-          // back to the event they just unlocked.
-          setTimeout(() => router.replace(`/dashboard/${eventId}`), 1800);
+          // Let the confirmation land before moving on.
+          setTimeout(() => router.replace(doneHref), 1800);
         }
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
@@ -72,7 +70,7 @@ export function QPayCheckout({
         setChecking(false);
       }
     },
-    [paymentId, eventId, router]
+    [checkUrl, doneHref, router]
   );
 
   useEffect(() => {
@@ -117,7 +115,7 @@ export function QPayCheckout({
         </h2>
         <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-300">{labels.paidBody}</p>
         <a
-          href={`/dashboard/${eventId}`}
+          href={doneHref}
           className="mt-6 inline-block rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 focus-visible:outline-none dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
         >
           {labels.backToEvent}

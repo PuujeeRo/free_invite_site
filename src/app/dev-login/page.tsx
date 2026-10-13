@@ -3,13 +3,15 @@ import { isLocalDevMode } from "@/lib/supabase/local-dev";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/supabase/types";
 import { devSignIn, devSignInOrCreate } from "./actions";
+import { safeNextPath } from "@/lib/safe-next";
 import { DevLoginForm } from "./DevLoginForm";
 
 // LOCAL_DEV_MODE only: stands in for the real magic-link login page, which
 // needs GoTrue (not available -- see lib/supabase/local-dev.ts). 404s outright
 // in any other mode, including if this were ever accidentally deployed.
-export default async function DevLoginPage() {
+export default async function DevLoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   if (!isLocalDevMode()) notFound();
+  const next = safeNextPath((await searchParams).next);
 
   const supabase = createAdminClient();
   const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
@@ -28,7 +30,7 @@ export default async function DevLoginPage() {
         <div className="mt-6 flex flex-col gap-2">
           <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Existing test organizers</p>
           {profiles.map((profile) => (
-            <form key={profile.id} action={devSignIn.bind(null, profile.id)}>
+            <form key={profile.id} action={devSignIn.bind(null, profile.id, next)}>
               <button
                 type="submit"
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-left text-sm hover:border-zinc-500 dark:border-zinc-700"
@@ -43,7 +45,7 @@ export default async function DevLoginPage() {
       <p className="mt-6 text-xs font-medium text-zinc-600 dark:text-zinc-400">
         {profiles.length > 0 ? "Or create a new one" : "Create a test organizer"}
       </p>
-      <DevLoginForm action={devSignInOrCreate} />
+      <DevLoginForm action={devSignInOrCreate} next={next} />
     </div>
   );
 }

@@ -17,6 +17,9 @@ import { MAX_GALLERY_IMAGES, galleryUrlsOrEmpty, parseGalleryUrls, readGallery }
 import { isPrivateAddress, isPublicHost } from "@/lib/public-host";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
 import { proxiedImageUrl, verifyImageSignature } from "@/lib/image-proxy";
+import { buildComposeLinks, buildMimeMessage, encodeHeader, isPlainEmail } from "@/lib/email/mime";
+import { decryptToken, encryptToken } from "@/lib/email/gmail";
+import { safeNextPath } from "@/lib/safe-next";
 
 let passed = 0;
 const failures: string[] = [];
@@ -112,6 +115,62 @@ async function main() {
   check("all-day ends next day, exclusive", dates(buildGoogleCalendarUrl({ title: "x", date: "2027-02-28" })), "20270228/20270301");
   check("no date, no link", buildGoogleCalendarUrl({ title: "x", date: "" }), null);
   check("calendar zone pinned", new URL(buildGoogleCalendarUrl({ title: "x", date: "2026-12-20", time: "18:00" })!).searchParams.get("ctz"), "Asia/Ulaanbaatar");
+
+  // ---- email: an address goes into a message header and into links ----
+  check("ordinary address accepted", isPlainEmail("bat.saraa+inv@example.mn"), true);
+  check("line break in address rejected", isPlainEmail("a@b.mn\r\nBcc: spam@evil.example"), false);
+  check("two addresses rejected", isPlainEmail("a@b.mn,c@d.mn"), false);
+  check("display-name form rejected", isPlainEmail("Bat <a@b.mn>"), false);
+  check("no message for a bad address", buildMimeMessage({ to: "a@b.mn\nBcc: x@y.z", subject: "s", text: "t", html: "h" }), null);
+
+  const mime = buildMimeMessage({ to: "a@b.mn", subject: "Бат & Сараа — урилга", text: "Сайн уу", html: "<p>Сайн уу</p>", boundary: "B" })!;
+  const [mimeHead] = mime.split("\r\n\r\n");
+  check("headers are pure ASCII", /^[\x00-\x7f]*$/.test(mimeHead), true);
+  check("exactly one To header", mimeHead.split("\r\n").filter((l) => /^to:/i.test(l)), ["To: a@b.mn"]);
+  check("no From header (Gmail sets it)", /^from:/im.test(mimeHead), false);
+  const decodedSubject = [...encodeHeader("Бат & Сараа — урилга").matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g)]
+    .map((m) => Buffer.from(m[1], "base64").toString("utf8"))
+    .join("");
+  check("subject survives encoding", decodedSubject, "Бат & Сараа — урилга");
+  check(
+    "each encoded word is within 75 characters",
+    encodeHeader("Төгсөлтийн баярын урилга ".repeat(6)).split("\r\n ").every((w) => w.length <= 75),
+    true
+  );
+  check("line break in subject cannot start a header", encodeHeader("Hi\r\nBcc: x@y.z").includes("\n"), false);
+  check("text part decodes", Buffer.from(mime.split("\r\n\r\n")[2].split("\r\n--B")[0], "base64").toString("utf8"), "Сайн уу");
+
+  const compose = buildComposeLinks({ to: "a@b.mn", subject: "Урилга & баяр", body: "Мөр 1\nhttps://naashir.mn/i/x?to=1&a=2" })!;
+  const gmailUrl = new URL(compose.gmail);
+  check("gmail compose host", gmailUrl.origin + gmailUrl.pathname, "https://mail.google.com/mail/");
+  check("gmail compose keeps the body intact", gmailUrl.searchParams.get("body"), "Мөр 1\nhttps://naashir.mn/i/x?to=1&a=2");
+  check("gmail compose subject", gmailUrl.searchParams.get("su"), "Урилга & баяр");
+  check("mailto has no stray query from the body", compose.mailto.split("?").length, 2);
+  check(
+    "mailto body round-trips",
+    decodeURIComponent(compose.mailto.split("&body=")[1]),
+    "Мөр 1\r\nhttps://naashir.mn/i/x?to=1&a=2"
+  );
+  check("no compose links for a bad address", buildComposeLinks({ to: "a@b.mn?bcc=x@y.z", subject: "s", body: "b" }), null);
+
+  // ---- the stored Gmail token ----
+  const key = Buffer.alloc(32, 7);
+  const sealed = encryptToken("1//refresh-token", key);
+  check("token round-trips", decryptToken(sealed, key), "1//refresh-token");
+  check("token is not stored in the clear", sealed.includes("refresh"), false);
+  check("same token encrypts differently each time", encryptToken("1//refresh-token", key) === sealed, false);
+  check("wrong key yields nothing", decryptToken(sealed, Buffer.alloc(32, 8)), null);
+  check("tampered token yields nothing", decryptToken(sealed.slice(0, -2) + (sealed.endsWith("A") ? "B" : "A") + "A", key), null);
+  check("garbage yields nothing", decryptToken("not-a-token", key), null);
+
+  // ---- where sign-in may send someone ----
+  check("plain path kept", safeNextPath("/create"), "/create");
+  check("dashboard path kept", safeNextPath("/dashboard/0b1f4c1e-aaaa-4bbb-8ccc-123456789abc"), "/dashboard/0b1f4c1e-aaaa-4bbb-8ccc-123456789abc");
+  check("userinfo trick refused", safeNextPath("@evil.example"), "/dashboard");
+  check("protocol-relative refused", safeNextPath("//evil.example"), "/dashboard");
+  check("absolute url refused", safeNextPath("https://evil.example"), "/dashboard");
+  check("backslash refused", safeNextPath("/\\evil.example"), "/dashboard");
+  check("missing falls back", safeNextPath(null), "/dashboard");
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {

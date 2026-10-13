@@ -22,6 +22,7 @@ export type CreateEventError =
   | "photo_size"
   | "bad_map_link"
   | "bad_gallery"
+  | "live_limit"
   | "generic"
   | "slug";
 
@@ -33,6 +34,8 @@ const EVENT_TYPE_IDS = new Set(EVENT_TYPES.map((t) => t.id));
 const TEMPLATE_IDS = new Set(TEMPLATES.map((t) => t.id));
 
 const POSTGRES_UNIQUE_VIOLATION = "23505";
+// Raised by guard_event_insert (migration 0014) at MAX_LIVE_INVITATIONS.
+const LIVE_LIMIT_ERRCODE = "P0003";
 const MAX_SLUG_ATTEMPTS = 5;
 
 export async function createEvent(
@@ -45,7 +48,7 @@ export async function createEvent(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/login?next=/create");
   }
 
   const eventType = String(formData.get("event_type") ?? "");
@@ -152,6 +155,10 @@ export async function createEvent(
       insertedId = data.id;
       insertedSlug = data.slug;
       break;
+    }
+
+    if (error && (error as { code?: string }).code === LIVE_LIMIT_ERRCODE) {
+      return { error: "live_limit" };
     }
 
     // Only retry on a slug collision; anything else is a real failure.

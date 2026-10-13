@@ -5,6 +5,10 @@ export interface CreateInvoiceParams {
   paymentId: string;
   amount: number;
   description: string;
+  // Both default to the event-upgrade flow (/api/payments/qpay/webhook and
+  // /pay/qpay/<id>). A tip, which has no payments row, supplies its own.
+  callbackUrl?: string;
+  checkoutUrl?: string;
 }
 
 // One bank/wallet app QPay offers as a deeplink for this invoice.

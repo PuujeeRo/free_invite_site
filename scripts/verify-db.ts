@@ -16,7 +16,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
-import { EVENT_TYPES, freeGuestLimitFor } from "@/lib/event-types";
+import { EVENT_TYPES, MAX_LIVE_INVITATIONS, RSVP_SAFETY_CEILING } from "@/lib/event-types";
 
 const TEST_DB = "naashir_test";
 const ROOT = process.cwd();
@@ -119,64 +119,67 @@ async function main() {
   const prof = await db.query(`select id from public.profiles where id = $1`, [orgId]);
   assert("new auth user gets a profile row", prof.rowCount === 1);
 
-  // ---- guest limit: app constants vs DB trigger ---------------------------
-  // The real point of this block: the limit the organizer is SHOWN (from
-  // lib/event-types.ts) must equal the limit the database actually ENFORCES.
-  // Those drifting apart is invisible until a guest is wrongly turned away.
-  section("free-plan guest limit (app constant vs DB trigger)");
+  // ---- guests: no per-category limit any more -----------------------------
+  // Every category used to stop at 10 or 100 guests. The service is free now,
+  // so each must simply accept guests -- checked past the old ceiling of 100.
+  section("no per-category guest limit");
   for (const type of EVENT_TYPES) {
-    const expected = freeGuestLimitFor(type.id);
     const eventId = await newEvent(orgId, type.id);
-
     let accepted = 0;
-    let blockedAt: number | null = null;
-    for (let i = 0; i < expected + 1; i++) {
-      try {
-        await rsvp(eventId, `device-${i}`);
-        accepted++;
-      } catch (e) {
-        if (!isLimitError(e)) throw e;
-        blockedAt = i;
-        break;
-      }
-    }
-    assert(
-      `${type.id}: DB enforces ${expected}`,
-      accepted === expected && blockedAt === expected,
-      `accepted=${accepted} blockedAt=${blockedAt}`
-    );
-  }
-
-  // ---- paid events are unlimited -----------------------------------------
-  section("paid event bypasses the limit");
-  const paidEvent = await newEvent(orgId, "birthday", true);
-  let paidOk = true;
-  for (let i = 0; i < 15; i++) {
     try {
-      await rsvp(paidEvent, `paid-device-${i}`);
-    } catch {
-      paidOk = false;
-      break;
+      const res = await db.query(
+        `insert into public.rsvps (event_id, device_guest_id, status)
+         select $1, 'device-' || g, 'yes'::rsvp_status from generate_series(1, 120) g`,
+        [eventId]
+      );
+      accepted = res.rowCount ?? 0;
+    } catch (e) {
+      if (!isLimitError(e)) throw e;
     }
+    assert(`${type.id}: accepts 120 guests`, accepted === 120, `accepted=${accepted}`);
   }
-  assert("paid birthday accepts >10 guests", paidOk);
 
-  // ---- the reason api/rsvp uses update-then-insert, not upsert ------------
-  // At the limit an EXISTING device must still be able to change its answer.
-  // An INSERT..ON CONFLICT would re-run the BEFORE INSERT trigger and be
-  // rejected here, which is exactly the bug that route avoids.
-  section("existing guest can change answer at the limit");
+  // ---- the safety ceiling: app constant vs DB trigger ---------------------
+  // Not a product limit, but the number in lib/event-types.ts must still be
+  // the number the database enforces.
+  section("rsvp safety ceiling (app constant vs DB trigger)");
   const fullEvent = await newEvent(orgId, "birthday");
-  for (let i = 0; i < 10; i++) await rsvp(fullEvent, `d-${i}`);
-
+  await db.query(
+    `insert into public.rsvps (event_id, device_guest_id, status)
+     select $1, 'd-' || g, 'yes'::rsvp_status from generate_series(0, $2::int - 1) g`,
+    [fullEvent, RSVP_SAFETY_CEILING]
+  );
   let newBlocked = false;
   try {
     await rsvp(fullEvent, "d-new");
   } catch (e) {
     newBlocked = isLimitError(e);
   }
-  assert("11th new device is blocked", newBlocked);
+  assert(`device ${RSVP_SAFETY_CEILING + 1} is blocked`, newBlocked);
 
+  // ---- paid events have no ceiling ---------------------------------------
+  section("paid event bypasses the ceiling");
+  const paidFull = await db.query(
+    `update public.events set is_paid = true where id = $1 returning id`,
+    [await newEvent(orgId, "birthday")]
+  );
+  let paidOk = true;
+  try {
+    await db.query(
+      `insert into public.rsvps (event_id, device_guest_id, status)
+       select $1, 'p-' || g, 'yes'::rsvp_status from generate_series(0, $2::int) g`,
+      [paidFull.rows[0].id, RSVP_SAFETY_CEILING]
+    );
+  } catch {
+    paidOk = false;
+  }
+  assert("paid event accepts more than the ceiling", paidOk);
+
+  // ---- the reason api/rsvp uses update-then-insert, not upsert ------------
+  // At the ceiling an EXISTING device must still be able to change its answer.
+  // An INSERT..ON CONFLICT would re-run the BEFORE INSERT trigger and be
+  // rejected here, which is exactly the bug that route avoids.
+  section("existing guest can change answer at the ceiling");
   const upd = await db.query(
     `update public.rsvps set status = 'no' where event_id = $1 and device_guest_id = 'd-0'`,
     [fullEvent]
@@ -189,15 +192,15 @@ async function main() {
   );
   assert(
     "changing an answer does not consume a slot",
-    cnt.rows[0].count === "10",
+    cnt.rows[0].count === String(RSVP_SAFETY_CEILING),
     `count=${cnt.rows[0].count}`
   );
 
   // ---- uniqueness + updated_at -------------------------------------------
   section("rsvp constraints");
   // Uniqueness must be checked on an event that is NOT at its limit: the BEFORE
-  // INSERT limit trigger fires before the unique constraint is evaluated, so on a
-  // full event a duplicate device is rejected as guest_limit_reached and the
+  // INSERT limit trigger fires before the unique constraint is evaluated, so on an
+  // event at the ceiling a duplicate device is rejected as guest_limit_reached and the
   // constraint never gets a chance to speak.
   const spareEvent = await newEvent(orgId, "birthday");
   await rsvp(spareEvent, "dup-device");
@@ -275,6 +278,132 @@ async function main() {
     await db.query("rollback").catch(() => {});
     assert("RLS policies enforced", false, `could not run: ${String((e as Error).message)}`);
   }
+
+  // ---- free-model rules (migration 0014), as an end user ------------------
+  // These guards exempt privileged roles on purpose, so they have to be tested
+  // as `authenticated`, the role an organizer's request really runs under.
+  section("live invitation limit and guarded columns");
+  const limitOrg = await newOrganizer();
+  try {
+    await db.query(`grant usage on schema public to authenticated`);
+    await db.query(`grant select, insert, update, delete on all tables in schema public to authenticated`);
+    await db.query(`grant authenticated to current_user with set true`);
+
+    await db.query("begin");
+    await db.query(`set local role authenticated`);
+    await db.query(`select set_config('request.jwt.claim.sub', $1, true)`, [limitOrg]);
+
+    const insertOwn = (extra = "", values = "") =>
+      db.query<{ id: string; is_paid: boolean; days: number }>(
+        `insert into public.events (organizer_id, event_type, name, event_date, slug${extra})
+         values ($1, 'birthday', 'Live', current_date + 30, 'slug-' || gen_random_uuid()${values})
+         returning id, is_paid, extract(epoch from (expires_at - now())) / 86400 as days`,
+        [limitOrg]
+      );
+
+    // An organizer must not be able to create an already-paid invitation, nor
+    // one that outlives the longest lifetime the form offers.
+    const sneaky = await insertOwn(", is_paid, expires_at", ", true, now() + interval '5 years'");
+    assert("is_paid cannot be set on insert", sneaky.rows[0].is_paid === false);
+    assert(
+      "expires_at is capped at 30 days on insert",
+      Number(sneaky.rows[0].days) <= 30.01,
+      `days=${Number(sneaky.rows[0].days).toFixed(2)}`
+    );
+
+    const chosen = await insertOwn(", expires_at", ", now() + interval '14 days'");
+    assert(
+      "a 14-day lifetime is kept as chosen",
+      Math.abs(Number(chosen.rows[0].days) - 14) < 0.01,
+      `days=${Number(chosen.rows[0].days).toFixed(2)}`
+    );
+
+    for (let i = 2; i < MAX_LIVE_INVITATIONS; i++) await insertOwn();
+
+    await db.query("savepoint at_limit");
+    let liveBlocked = false;
+    try {
+      await insertOwn();
+    } catch (e) {
+      liveBlocked = String((e as Error).message).includes("live_invitation_limit");
+    }
+    await db.query("rollback to savepoint at_limit");
+    assert(`invitation ${MAX_LIVE_INVITATIONS + 1} is blocked`, liveBlocked);
+
+    await db.query("savepoint extend");
+    let extendBlocked = false;
+    try {
+      await db.query(`update public.events set expires_at = now() + interval '1 year' where id = $1`, [
+        chosen.rows[0].id,
+      ]);
+    } catch (e) {
+      extendBlocked = String((e as Error).message).includes("expires_at");
+    }
+    await db.query("rollback to savepoint extend");
+    assert("an organizer cannot extend expires_at afterwards", extendBlocked);
+
+    // Deleting one frees a place: this is what the limit message tells people to do.
+    await db.query(`delete from public.events where id = $1`, [sneaky.rows[0].id]);
+    let freed = true;
+    try {
+      await insertOwn();
+    } catch {
+      freed = false;
+    }
+    assert("deleting an invitation frees a place", freed);
+
+    await db.query("rollback");
+  } catch (e) {
+    await db.query("rollback").catch(() => {});
+    assert("free-model guards enforced", false, `could not run: ${String((e as Error).message)}`);
+  }
+
+  // A privileged role (the payment webhook, the Supabase dashboard) is exempt:
+  // that is how an event is deliberately taken out of the limit.
+  let exempt = true;
+  try {
+    for (let i = 0; i < MAX_LIVE_INVITATIONS + 2; i++) await newEvent(limitOrg, "birthday");
+  } catch {
+    exempt = false;
+  }
+  assert("a privileged role is not bound by the live limit", exempt);
+
+  // ---- views, per device --------------------------------------------------
+  section("event views");
+  const viewedEvent = await newEvent(orgId, "wedding");
+  const record = (device: string, kind: string) =>
+    db.query(`select public.record_event_activity($1, $2, $3)`, [viewedEvent, device, kind]);
+  await record("device-aaaa-0001", "view");
+  await record("device-aaaa-0001", "view");
+  await record("device-aaaa-0002", "view");
+  await record("device-aaaa-0002", "map");
+  await record("device-aaaa-0003", "calendar"); // clicked without a counted view
+  await record("device-aaaa-0004", "nonsense");
+  await record("short", "view");
+  const stats = await db.query<{ devices: string; opens: string; map_clicks: string; calendar_clicks: string }>(
+    `select * from public.event_view_stats($1)`,
+    [viewedEvent]
+  );
+  const st = stats.rows[0];
+  assert(
+    "counts devices once and opens every time",
+    st.devices === "2" && st.opens === "3" && st.map_clicks === "1" && st.calendar_clicks === "1",
+    JSON.stringify(st)
+  );
+
+  // ---- tips ---------------------------------------------------------------
+  section("tips");
+  let tinyBlocked = false;
+  try {
+    await db.query(`insert into public.tips (amount) values (10)`);
+  } catch {
+    tinyBlocked = true;
+  }
+  assert("a tip below the minimum is rejected", tinyBlocked);
+  const tip = await db.query<{ status: string; is_public: boolean }>(
+    `insert into public.tips (amount) values (5000) returning status, is_public`
+  );
+  assert("a tip starts pending and private", tip.rows[0].status === "pending" && tip.rows[0].is_public === false);
 
   await db.end();
 

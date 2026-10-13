@@ -1,0 +1,225 @@
+-- The service is free and supported by tips. The limits that existed to sell a
+-- paid plan go; the ones that protect a free service from cost and abuse stay
+-- or arrive here.
+--
+--   1. Guests: no per-category limit any more, only a high safety ceiling.
+--   2. Invitations: at most 5 live (unexpired, unpaid) per organizer, and the
+--      columns that decide "paid" and "expires" can no longer be set by the
+--      organizer on insert or changed afterwards.
+--   3. event_views: who opened an invitation, counted per device.
+--   4. tips: voluntary payments, with an optional public thank-you.
+
+-- ---------- 1. guests ----------
+
+-- Same trigger as before (0001, last redefined in 0013), same error, but one
+-- number for every category. 5000 is not a product limit and is never shown:
+-- it only stops a script from filling the table through the public RSVP route.
+-- Must match RSVP_SAFETY_CEILING in src/lib/event-types.ts.
+create or replace function public.enforce_rsvp_limit()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_is_paid boolean;
+  v_count int;
+begin
+  select is_paid into v_is_paid from public.events where id = new.event_id;
+  if v_is_paid then
+    return new;
+  end if;
+
+  select count(*) into v_count from public.rsvps where event_id = new.event_id;
+  if v_count >= 5000 then
+    raise exception 'guest_limit_reached' using errcode = 'P0001';
+  end if;
+
+  return new;
+end;
+$$;
+
+-- ---------- 2. invitations ----------
+
+-- Runs for end users only, by the same role test as guard_event_paid_columns
+-- in 0005 (and SECURITY INVOKER for the same reason): the service-role key,
+-- used by the payment webhook and by anything done from the Supabase
+-- dashboard, is exempt. That is also how an event is made exempt on purpose
+-- -- mark it is_paid from the dashboard and it neither counts nor expires.
+--
+-- Before this, 0005 guarded is_paid on UPDATE only: an organizer could simply
+-- INSERT a row that was already paid, and could set any expiry they liked.
+create or replace function public.guard_event_insert()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_live int;
+begin
+  if current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+
+  new.is_paid := false;
+  new.paid_at := null;
+
+  -- The form offers 7, 14 or 30 days (LINK_LIFETIME_DAYS in event-types.ts).
+  -- Anything longer, or already in the past, is brought back into that range.
+  if new.expires_at is null or new.expires_at > now() + interval '30 days' then
+    new.expires_at := now() + interval '30 days';
+  elsif new.expires_at < now() + interval '1 day' then
+    new.expires_at := now() + interval '7 days';
+  end if;
+
+  -- RLS limits this count to the caller's own rows anyway; the organizer_id
+  -- test states the intent. Must match MAX_LIVE_INVITATIONS in event-types.ts.
+  select count(*) into v_live
+    from public.events
+   where organizer_id = new.organizer_id
+     and not is_paid
+     and expires_at > now();
+
+  if v_live >= 5 then
+    raise exception 'live_invitation_limit' using errcode = 'P0003';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_event_insert on public.events;
+create trigger guard_event_insert
+  before insert on public.events
+  for each row execute function public.guard_event_insert();
+
+-- An organizer cannot push the expiry out afterwards either.
+create or replace function public.guard_event_expiry()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+
+  if new.expires_at is distinct from old.expires_at then
+    raise exception 'expires_at is fixed when the invitation is created'
+      using errcode = 'P0002';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_event_expiry on public.events;
+create trigger guard_event_expiry
+  before update on public.events
+  for each row execute function public.guard_event_expiry();
+
+-- ---------- 3. views, per device ----------
+
+-- One row per (invitation, device). The device id is the same random id the
+-- RSVP uses (lib/guest-device-id.ts), so "opened it" and "answered it" count
+-- the same way. Counts of opens and of the two buttons ride on the same row.
+create table if not exists public.event_views (
+  event_id uuid not null references public.events (id) on delete cascade,
+  device_id text not null,
+  views integer not null default 0,
+  map_clicks integer not null default 0,
+  calendar_clicks integer not null default 0,
+  first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  primary key (event_id, device_id)
+);
+
+alter table public.event_views enable row level security;
+
+-- Organizers read their own; nobody writes directly. Rows are written only by
+-- record_event_activity below, called with the service-role key from
+-- /api/track.
+drop policy if exists "event_views_owner_select" on public.event_views;
+create policy "event_views_owner_select" on public.event_views
+  for select using (
+    exists (select 1 from public.events e where e.id = event_id and e.organizer_id = auth.uid())
+  );
+
+-- The device id comes from the visitor's browser, so a script could invent a
+-- new one per request. Past 20000 devices an invitation simply stops gaining
+-- rows; devices already counted keep counting.
+create or replace function public.record_event_activity(p_event_id uuid, p_device_id text, p_kind text)
+returns void
+language plpgsql
+set search_path = public
+as $$
+begin
+  if p_kind not in ('view', 'map', 'calendar') or length(p_device_id) not between 8 and 64 then
+    return;
+  end if;
+
+  if not exists (select 1 from public.event_views where event_id = p_event_id and device_id = p_device_id)
+     and (select count(*) from public.event_views where event_id = p_event_id) >= 20000 then
+    return;
+  end if;
+
+  insert into public.event_views (event_id, device_id, views, map_clicks, calendar_clicks)
+  values (
+    p_event_id,
+    p_device_id,
+    (p_kind = 'view')::int,
+    (p_kind = 'map')::int,
+    (p_kind = 'calendar')::int
+  )
+  on conflict (event_id, device_id) do update
+    set views = public.event_views.views + excluded.views,
+        map_clicks = public.event_views.map_clicks + excluded.map_clicks,
+        calendar_clicks = public.event_views.calendar_clicks + excluded.calendar_clicks,
+        last_seen_at = now();
+end;
+$$;
+
+revoke execute on function public.record_event_activity(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.record_event_activity(uuid, text, text) to service_role;
+
+-- Totals for the organizer's dashboard. SECURITY INVOKER, so the select policy
+-- above applies: asking about someone else's invitation returns zeros.
+create or replace function public.event_view_stats(p_event_id uuid)
+returns table (devices bigint, opens bigint, map_clicks bigint, calendar_clicks bigint)
+language sql
+stable
+set search_path = public
+as $$
+  select count(*) filter (where v.views > 0),
+         coalesce(sum(v.views), 0),
+         coalesce(sum(v.map_clicks), 0),
+         coalesce(sum(v.calendar_clicks), 0)
+    from public.event_views v
+   where v.event_id = p_event_id;
+$$;
+
+grant select on public.event_views to authenticated;
+grant execute on function public.event_view_stats(uuid) to authenticated;
+
+-- ---------- 4. tips ----------
+
+-- Not tied to an event or to an account: anyone can tip, signed in or not.
+-- No policies at all, on purpose -- every read and write goes through the
+-- server with the service-role key, which also decides what the public
+-- supporters list may show (a name and a message, never the amount).
+create table if not exists public.tips (
+  id uuid primary key default gen_random_uuid(),
+  amount integer not null check (amount between 500 and 5000000),
+  currency text not null default 'MNT',
+  display_name text check (display_name is null or length(display_name) <= 60),
+  message text check (message is null or length(message) <= 200),
+  is_public boolean not null default false,
+  status payment_status not null default 'pending',
+  provider payment_provider not null default 'qpay',
+  provider_ref text,
+  checkout jsonb,
+  created_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+
+create index if not exists tips_public_paid_idx on public.tips (paid_at desc) where status = 'paid' and is_public;
+
+alter table public.tips enable row level security;

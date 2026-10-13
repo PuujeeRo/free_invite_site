@@ -8,13 +8,18 @@ import { Logo } from "@/components/brand/Logo";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { HeaderRow } from "@/components/layout/HeaderRow";
 import { isLocalDevMode } from "@/lib/supabase/local-dev";
+import { safeNextPath } from "@/lib/safe-next";
 import { LoginForm } from "./login-form";
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  // Where to land after signing in. /create sends people here with
+  // ?next=/create so they return to the form they were filling in.
+  const next = safeNextPath((await searchParams).next);
+
   // No GoTrue locally, so no real magic-link form to show -- see
   // lib/supabase/local-dev.ts and app/dev-login for why.
   if (isLocalDevMode()) {
-    redirect("/dev-login");
+    redirect(`/dev-login?next=${encodeURIComponent(next)}`);
   }
 
   const supabase = await createClient();
@@ -23,7 +28,7 @@ export default async function LoginPage() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect("/dashboard");
+    redirect(next);
   }
 
   const locale = await getLocale();
@@ -44,8 +49,10 @@ export default async function LoginPage() {
           <h1 className="font-display text-2xl font-medium tracking-tight text-zinc-900 dark:text-zinc-50">
             {t.login.heading}
           </h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{t.login.subtitle}</p>
-          <LoginForm />
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            {next === "/create" ? t.login.createHint : t.login.subtitle}
+          </p>
+          <LoginForm next={next} />
         </div>
       </PageContainer>
     </div>

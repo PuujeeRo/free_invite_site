@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { freeGuestLimitFor } from "@/lib/event-types";
 import { getLocale } from "@/i18n/get-locale";
 import { getDictionary } from "@/i18n/dictionaries";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -37,7 +36,6 @@ export default async function GuestsPage({ params }: { params: Promise<{ eventId
     .filter((r) => r.status === "yes")
     .reduce((sum, r) => sum + r.party_size, 0);
 
-  const limit = event.is_paid ? null : freeGuestLimitFor(event.event_type);
   const locale = await getLocale();
   const t = getDictionary(locale);
   const statusLabel: Record<RsvpRow["status"], string> = {
@@ -61,12 +59,6 @@ export default async function GuestsPage({ params }: { params: Promise<{ eventId
 
       <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
         {t.guests.totalAttending}: <strong>{totalPeopleAttending}</strong>
-        {limit && (
-          <>
-            {" "}
-            · {rsvps.length}/{limit} {t.guests.guestSlotsUsed}
-          </>
-        )}
       </p>
 
       {namedGuests.length > 0 && (

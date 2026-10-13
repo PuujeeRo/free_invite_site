@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getEmailProvider } from "@/lib/email";
+import { GmailEmailProvider, disconnectGmail, getGmailConnection } from "@/lib/email/gmail";
 import { buildInviteEmail } from "@/lib/email/invite-template";
 import { invitationUrl } from "@/lib/site-url";
 import { FREE_EMAIL_SEND_LIMIT } from "@/lib/event-types";
@@ -47,7 +48,7 @@ export async function addNamedGuest(
   return {};
 }
 
-export type SendGuestEmailError = "not_found" | "no_email" | "limit_reached" | "generic";
+export type SendGuestEmailError = "not_found" | "no_email" | "limit_reached" | "gmail_reconnect" | "generic";
 
 export interface SendGuestEmailState {
   error?: SendGuestEmailError;
@@ -84,7 +85,15 @@ export async function sendGuestEmail(
     return { error: "no_email" };
   }
 
-  if (!event.is_paid) {
+  // From the organizer's own Gmail when they have connected it, otherwise
+  // from the site's sender. The per-invitation cap protects the site's sending
+  // quota, so it does not apply to mail that leaves from their own account.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const gmail = user ? await getGmailConnection(user.id) : null;
+
+  if (!event.is_paid && !gmail) {
     const { count } = await supabase
       .from("named_guests")
       .select("id", { count: "exact", head: true })
@@ -103,11 +112,12 @@ export async function sendGuestEmail(
     link: invitationUrl(event.slug, guest.guest_token),
   });
 
-  const provider = getEmailProvider();
+  const provider = gmail ? new GmailEmailProvider(gmail) : getEmailProvider();
   const result = await provider.send({ to: guest.email, subject, html, text });
 
   if (!result.ok) {
-    return { error: "generic" };
+    const reconnect = provider instanceof GmailEmailProvider && provider.needsReconnect;
+    return { error: reconnect ? "gmail_reconnect" : "generic" };
   }
 
   await supabase
@@ -117,4 +127,13 @@ export async function sendGuestEmail(
 
   revalidatePath(`/dashboard/${eventId}`);
   return { sentGuestId: guestId };
+}
+
+export async function disconnectGmailAction(eventId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) await disconnectGmail(user.id);
+  revalidatePath(`/dashboard/${eventId}`);
 }

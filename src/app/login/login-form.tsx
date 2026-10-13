@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next: string }) {
   const { dict: t } = useI18n();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -21,7 +21,7 @@ export function LoginForm() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
 

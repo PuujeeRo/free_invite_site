@@ -70,8 +70,8 @@ export default async function QPayCheckoutPage({
 
       <div className="mt-8">
         <QPayCheckout
-          paymentId={payment.id}
-          eventId={payment.event_id}
+          checkUrl={`/api/payments/qpay/check?payment_id=${payment.id}`}
+          doneHref={`/dashboard/${payment.event_id}`}
           qrImage={checkout.qrImage ?? null}
           shortUrl={checkout.shortUrl ?? null}
           deeplinks={checkout.deeplinks ?? []}

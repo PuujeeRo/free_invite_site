@@ -1,8 +1,17 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useMemo, useState } from "react";
-import { EVENT_TYPES, FREE_PLAN_ACTIVE_DAYS, LINK_LIFETIME_DAYS, featuresUnlocked } from "@/lib/event-types";
-import { splitTemplates } from "@/lib/templates";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  EVENT_TYPES,
+  LINK_LIFETIME_DAYS,
+  MAX_LIVE_INVITATIONS,
+  featuresUnlocked,
+  parseLifetimeDays,
+} from "@/lib/event-types";
+import { TEMPLATES, splitTemplates } from "@/lib/templates";
+import { clearCreateStash, writeCreateStash, type CreateStash } from "@/lib/create-stash";
 import { useI18n } from "@/i18n/I18nProvider";
 import { CoverImageField } from "@/components/media/CoverImageField";
 import { TemplatePicker } from "@/components/templates/TemplatePicker";
@@ -18,11 +27,17 @@ import { MapLinkField } from "@/components/media/MapLinkField";
 import { PREVIEW_DRAFT_KEY, type PreviewDraft } from "@/lib/preview-draft";
 import { CoverLayoutField } from "@/components/media/CoverLayoutField";
 import { EffectField } from "@/components/templates/EffectField";
-import { DEFAULT_CARD_EFFECT, type CardEffect, type CoverBackground } from "@/lib/theme";
+import {
+  parseCardEffect,
+  parseCoverBackground,
+  parseCoverIcon,
+  type CardEffect,
+  type CoverBackground,
+} from "@/lib/theme";
 import { previewMapLink } from "@/lib/map-embed";
 import { MAX_GALLERY_IMAGES, galleryUrlsOrEmpty } from "@/lib/gallery";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
-import type { CoverLayout, EventKind, EventType } from "@/lib/supabase/types";
+import { parseCoverLayout, type CoverLayout, type EventKind, type EventType } from "@/lib/supabase/types";
 import { createEvent, type CreateEventState } from "./actions";
 
 const initialState: CreateEventState = {};
@@ -36,6 +51,7 @@ const ERROR_KEY = {
   photo_size: "photoErrorSize",
   bad_map_link: "errorMapLink",
   bad_gallery: "errorGallery",
+  live_limit: "errorLiveLimit",
   generic: "errorGeneric",
   slug: "errorSlug",
 } as const;
@@ -62,27 +78,61 @@ function firstSuggestedTemplate(eventType: EventType): string {
   return (recommended[0] ?? others[0]).id;
 }
 
-export function NewEventForm() {
+export function NewEventForm({
+  signedIn,
+  atLiveLimit,
+  initial,
+}: {
+  // The form is open to visitors; creating needs an account. A visitor who
+  // submits is sent to sign in and comes back with `initial` holding what
+  // they had entered (see lib/create-stash.ts and CreateFormLoader).
+  signedIn: boolean;
+  atLiveLimit: boolean;
+  initial: CreateStash | null;
+}) {
   const { dict: t } = useI18n();
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(createEvent, initialState);
 
-  const [kind, setKind] = useState<EventKind>("invitation");
-  const [eventType, setEventType] = useState<EventType>(FIRST_TYPE);
-  const [templateId, setTemplateId] = useState(() => firstSuggestedTemplate(FIRST_TYPE));
+  // Every starting value below comes from `initial` when there is one. It was
+  // written by this same form, but it has been through browser storage, so
+  // each value is parsed back to a known one rather than trusted.
+  const initialType = EVENT_TYPES.find((type) => type.id === initial?.event_type)?.id ?? FIRST_TYPE;
+
+  const [kind, setKind] = useState<EventKind>(initial?.kind === "greeting" ? "greeting" : "invitation");
+  const [eventType, setEventType] = useState<EventType>(initialType);
+  const [templateId, setTemplateId] = useState(
+    () => TEMPLATES.find((template) => template.id === initial?.template_id)?.id ?? firstSuggestedTemplate(initialType)
+  );
   // Until the organizer picks a template themselves, the selection follows the
   // event type (a wedding starts on a wedding look). After a deliberate pick it
   // is theirs and switching event type no longer overrides it.
-  const [templateChosen, setTemplateChosen] = useState(false);
-  const [details, setDetails] = useState<Details>(EMPTY);
+  const [templateChosen, setTemplateChosen] = useState(Boolean(initial));
+  const [details, setDetails] = useState<Details>(() =>
+    initial
+      ? {
+          name: (initial.name ?? "").trim(),
+          senderName: (initial.sender_name ?? "").trim(),
+          date: initial.event_date ?? "",
+          time: initial.event_time ?? "",
+          location: (initial.location ?? "").trim(),
+          mapLink: (initial.map_link ?? "").trim(),
+          gallery: initial.gallery_urls ?? "",
+          description: (initial.description ?? "").trim(),
+        }
+      : EMPTY
+  );
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [coverLayout, setCoverLayout] = useState<CoverLayout>("top");
+  const [coverLayout, setCoverLayout] = useState<CoverLayout>(() => parseCoverLayout(initial?.cover_layout));
   // A new invitation starts with a built-in cover, so the card has the shape
   // of the demo from the first moment and what the preview shows is what gets
   // saved. "None" is one of the choices.
-  const [coverBackground, setCoverBackground] = useState<CoverBackground>("auto");
-  const [coverIcon, setCoverIcon] = useState<string | null>(null);
-  const [effect, setEffect] = useState<CardEffect>(DEFAULT_CARD_EFFECT);
-  const [lifetimeDays, setLifetimeDays] = useState<number>(FREE_PLAN_ACTIVE_DAYS);
+  const [coverBackground, setCoverBackground] = useState<CoverBackground>(() =>
+    initial ? parseCoverBackground(initial.cover_background) : "auto"
+  );
+  const [coverIcon, setCoverIcon] = useState<string | null>(() => parseCoverIcon(initial?.cover_icon));
+  const [effect, setEffect] = useState<CardEffect>(() => parseCardEffect(initial?.effect));
+  const [lifetimeDays, setLifetimeDays] = useState<number>(() => parseLifetimeDays(initial?.lifetime_days));
 
   const greeting = kind === "greeting";
   // A new event is never paid yet, so this is just "are the extras open".
@@ -159,11 +209,21 @@ export function NewEventForm() {
   // the no-JavaScript fallback.
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Not signed in: this is the moment to ask. The browser has already
+    // checked the required fields, so what is parked is a complete draft.
+    if (!signedIn) {
+      writeCreateStash(e.currentTarget);
+      router.push("/login?next=/create");
+      return;
+    }
+    clearCreateStash();
     const data = new FormData(e.currentTarget);
     startTransition(() => formAction(data));
   }
 
   const previewName = details.name || t.newEvent.previewNamePlaceholder;
+  // {live}, not {max}: withCoverLimits already claims {max} for another number.
+  const liveLimitText = t.newEvent.errorLiveLimit.replace("{live}", String(MAX_LIVE_INVITATIONS));
 
   const kinds: { id: EventKind; label: string; hint: string }[] = [
     { id: "invitation", label: t.newEvent.kindInvitation, hint: t.newEvent.kindInvitationHint },
@@ -181,6 +241,20 @@ export function NewEventForm() {
         onChange={(e) => snapshot(e.currentTarget)}
         className="flex min-w-0 flex-col gap-10"
       >
+        {atLiveLimit && (
+          <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-pretty text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            <p>{liveLimitText}</p>
+            <Link href="/dashboard" className="mt-1 inline-block font-medium underline underline-offset-4">
+              {t.dashboard.navLabel}
+            </Link>
+          </div>
+        )}
+        {initial && signedIn && !atLiveLimit && (
+          <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-pretty text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+            {t.newEvent.restoredNote}
+          </p>
+        )}
+
         <section>
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{t.newEvent.stepKind}</h2>
           <div className="mt-3 grid grid-cols-2 gap-3">
@@ -241,11 +315,11 @@ export function NewEventForm() {
             {/* `name` holds the event name for an invitation and the
                 recipient for a greeting -- same column, so same field name. */}
             <Field label={greeting ? t.newEvent.recipientLabel : t.newEvent.nameLabel}>
-              <input name="name" required maxLength={80} className={inputClass} />
+              <input name="name" defaultValue={initial?.name ?? ""} required maxLength={80} className={inputClass} />
             </Field>
             {greeting && (
               <Field label={t.newEvent.senderLabel}>
-                <input name="sender_name" maxLength={80} className={inputClass} />
+                <input name="sender_name" defaultValue={initial?.sender_name ?? ""} maxLength={80} className={inputClass} />
               </Field>
             )}
             {/* The date field keeps one position in the tree for both kinds, so
@@ -253,29 +327,41 @@ export function NewEventForm() {
                 A greeting is a card, not a gathering: no time, no place. */}
             <div className={greeting ? "grid" : "grid grid-cols-2 gap-3"}>
               <Field label={t.newEvent.dateLabel}>
-                <input type="date" name="event_date" required className={inputClass} />
+                <input type="date" name="event_date" defaultValue={initial?.event_date ?? ""} required className={inputClass} />
               </Field>
               {!greeting && (
                 <Field label={t.newEvent.timeLabel}>
-                  <input type="time" name="event_time" className={inputClass} />
+                  <input type="time" name="event_time" defaultValue={initial?.event_time ?? ""} className={inputClass} />
                 </Field>
               )}
             </div>
             {!greeting && (
               <Field label={t.newEvent.locationLabel}>
-                <input name="location" maxLength={140} className={inputClass} />
+                <input name="location" defaultValue={initial?.location ?? ""} maxLength={140} className={inputClass} />
               </Field>
             )}
             {!greeting && unlocked && (
-              <MapLinkField label={t.edit.mapLinkLabel} hint={t.newEvent.mapLinkHint} inputClass={inputClass} />
+              <MapLinkField
+                label={t.edit.mapLinkLabel}
+                hint={t.newEvent.mapLinkHint}
+                defaultValue={initial?.map_link ?? ""}
+                inputClass={inputClass}
+              />
             )}
             <Field label={greeting ? t.newEvent.messageLabel : t.newEvent.descriptionLabel}>
-              <textarea name="description" maxLength={400} rows={greeting ? 5 : 3} className={inputClass} />
+              <textarea
+                name="description"
+                defaultValue={initial?.description ?? ""}
+                maxLength={400}
+                rows={greeting ? 5 : 3}
+                className={inputClass}
+              />
             </Field>
             <CoverImageField onPreviewChange={setPhotoUrl} />
             <Field label={t.newEvent.galleryLabel}>
               <textarea
                 name="gallery_urls"
+                defaultValue={initial?.gallery_urls ?? ""}
                 rows={3}
                 placeholder={"https://...\nhttps://..."}
                 className={inputClass}
@@ -343,14 +429,16 @@ export function NewEventForm() {
             role="alert"
             className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
           >
-            {withCoverLimits(t.newEvent[ERROR_KEY[state.error]])}
+            {state.error === "live_limit" ? liveLimitText : withCoverLimits(t.newEvent[ERROR_KEY[state.error]])}
           </p>
         )}
+
+        {!signedIn && <p className="-mb-6 text-xs text-pretty text-zinc-500">{t.newEvent.signInNote}</p>}
 
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || atLiveLimit}
             className="rounded-lg bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {isPending

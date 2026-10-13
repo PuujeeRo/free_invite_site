@@ -18,6 +18,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
+  // The name the organizer gave themselves, if any; otherwise their email.
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  const accountLabel = profile?.display_name || user.email;
+
   const locale = await getLocale();
   const t = getDictionary(locale);
 
@@ -37,7 +41,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {t.dashboard.navLabel}
             </Link>
             <TopControls />
-            <span className="hidden sm:inline">{user.email}</span>
+            {/* Was a plain line of text: there was nowhere to change
+                anything about the account. On a phone, where the name is
+                dropped for space, the word "Profile" stands in for it. */}
+            <Link href="/dashboard/profile" className="hover:text-zinc-900 dark:hover:text-zinc-50">
+              <span className="hidden max-w-48 truncate align-bottom sm:inline-block">
+                {accountLabel ?? t.profile.navLabel}
+              </span>
+              <span className="sm:hidden">{t.profile.navLabel}</span>
+            </Link>
             <form action={signOut}>
               <button type="submit" className="hover:text-zinc-900 dark:hover:text-zinc-50">
                 {t.common.signOut}

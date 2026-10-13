@@ -37,6 +37,8 @@ export type PaymentStatus = "pending" | "paid" | "failed";
 export type Profile = {
   id: string;
   email: string | null;
+  // Migration 0016. Optional: absent on a database that has not had it applied.
+  display_name?: string | null;
   created_at: string;
 };
 
@@ -115,6 +117,48 @@ export type PaymentRow = {
   paid_at: string | null;
 };
 
+// One row per (invitation, device): migration 0014.
+export type EventViewRow = {
+  event_id: string;
+  device_id: string;
+  views: number;
+  map_clicks: number;
+  calendar_clicks: number;
+  first_seen_at: string;
+  last_seen_at: string;
+};
+
+// A voluntary payment, not tied to an event or an account: migration 0014.
+export type TipRow = {
+  id: string;
+  amount: number;
+  currency: string;
+  display_name: string | null;
+  message: string | null;
+  is_public: boolean;
+  status: PaymentStatus;
+  provider: PaymentProvider;
+  provider_ref: string | null;
+  checkout: CheckoutPayload | null;
+  created_at: string;
+  paid_at: string | null;
+};
+
+// An organizer's connected Gmail account: migration 0015. Server-only.
+export type GmailConnectionRow = {
+  organizer_id: string;
+  email: string;
+  refresh_token_enc: string;
+  connected_at: string;
+};
+
+export type EventViewStats = {
+  devices: number;
+  opens: number;
+  map_clicks: number;
+  calendar_clicks: number;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -148,8 +192,35 @@ export type Database = {
         Update: Partial<PaymentRow>;
         Relationships: [];
       };
+      event_views: {
+        Row: EventViewRow;
+        Insert: Partial<EventViewRow> & Pick<EventViewRow, "event_id" | "device_id">;
+        Update: Partial<EventViewRow>;
+        Relationships: [];
+      };
+      gmail_connections: {
+        Row: GmailConnectionRow;
+        Insert: Partial<GmailConnectionRow> & Pick<GmailConnectionRow, "organizer_id" | "email" | "refresh_token_enc">;
+        Update: Partial<GmailConnectionRow>;
+        Relationships: [];
+      };
+      tips: {
+        Row: TipRow;
+        Insert: Partial<TipRow> & Pick<TipRow, "amount">;
+        Update: Partial<TipRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      record_event_activity: {
+        Args: { p_event_id: string; p_device_id: string; p_kind: string };
+        Returns: undefined;
+      };
+      event_view_stats: {
+        Args: { p_event_id: string };
+        Returns: EventViewStats[];
+      };
+    };
   };
 };

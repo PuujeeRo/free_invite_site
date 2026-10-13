@@ -6,6 +6,6 @@ export interface SendInviteParams {
 }
 
 export interface EmailProvider {
-  name: "resend" | "log";
+  name: "resend" | "log" | "gmail";
   send(params: SendInviteParams): Promise<{ ok: boolean }>;
 }

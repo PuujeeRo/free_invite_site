@@ -142,6 +142,8 @@ export class QPayProvider implements PaymentProvider {
     paymentId,
     amount,
     description,
+    callbackUrl,
+    checkoutUrl,
   }: CreateInvoiceParams): Promise<CreateInvoiceResult> {
     const token = await getAccessToken();
     const invoiceCode = requireEnv("QPAY_INVOICE_CODE");
@@ -159,7 +161,7 @@ export class QPayProvider implements PaymentProvider {
         invoice_receiver_code: process.env.QPAY_INVOICE_RECEIVER_CODE ?? "terminal",
         invoice_description: description,
         amount,
-        callback_url: `${getSiteUrl()}/api/payments/qpay/webhook?payment_id=${paymentId}`,
+        callback_url: callbackUrl ?? `${getSiteUrl()}/api/payments/qpay/webhook?payment_id=${paymentId}`,
       }),
     });
 
@@ -193,7 +195,7 @@ export class QPayProvider implements PaymentProvider {
     // short URL is kept inside `checkout` as a fallback link.
     return {
       providerRef: json.invoice_id,
-      checkoutUrl: `${getSiteUrl()}/pay/qpay/${paymentId}`,
+      checkoutUrl: checkoutUrl ?? `${getSiteUrl()}/pay/qpay/${paymentId}`,
       checkout,
     };
   }

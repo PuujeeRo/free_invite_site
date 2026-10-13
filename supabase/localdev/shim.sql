@@ -41,8 +41,18 @@ $$;
 create table if not exists storage.buckets (
   id text primary key,
   name text not null,
-  public boolean not null default false
+  public boolean not null default false,
+  -- Both exist on real Supabase's storage.buckets with these types; migration
+  -- 0006 sets them, so the stand-in table needs them or that migration fails
+  -- here with "column file_size_limit does not exist".
+  file_size_limit bigint,
+  allowed_mime_types text[]
 );
+
+-- For a local database created before those two columns were added above:
+-- `create table if not exists` leaves an existing table as it is.
+alter table storage.buckets add column if not exists file_size_limit bigint;
+alter table storage.buckets add column if not exists allowed_mime_types text[];
 
 create table if not exists storage.objects (
   id uuid primary key default gen_random_uuid(),

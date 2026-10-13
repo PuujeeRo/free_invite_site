@@ -138,7 +138,7 @@ export function DemoClient() {
           )}
 
           <Link
-            href="/login"
+            href="/create"
             className="rounded-lg bg-zinc-900 px-4 py-2.5 text-center text-sm font-medium text-white visited:text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {t.demo.cta}

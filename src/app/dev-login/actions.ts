@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import type { Client as PgClient } from "pg";
 import { isLocalDevMode, setLocalDevSession } from "@/lib/supabase/local-dev";
+import { safeNextPath } from "@/lib/safe-next";
 
 export interface DevLoginState {
   error?: string;
@@ -30,10 +31,10 @@ async function connect(): Promise<PgClient> {
   return client;
 }
 
-export async function devSignIn(existingUserId: string): Promise<void> {
+export async function devSignIn(existingUserId: string, next: string): Promise<void> {
   if (!isLocalDevMode()) redirect("/login");
   await setLocalDevSession(existingUserId);
-  redirect("/dashboard");
+  redirect(safeNextPath(next));
 }
 
 export async function devSignInOrCreate(_prevState: DevLoginState, formData: FormData): Promise<DevLoginState> {
@@ -60,5 +61,5 @@ export async function devSignInOrCreate(_prevState: DevLoginState, formData: For
     await client.end();
   }
 
-  redirect("/dashboard");
+  redirect(safeNextPath(String(formData.get("next") ?? "")));
 }

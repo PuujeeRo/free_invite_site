@@ -19,6 +19,7 @@ import { AccountButton } from "@/components/account/AccountButton";
 import { HeaderRow } from "@/components/layout/HeaderRow";
 import { readTheme, readCustomText } from "@/lib/theme";
 import { coverBackgroundUrl } from "@/lib/cover-backgrounds";
+import { ViewTracker } from "@/components/track/ViewTracker";
 import { FreeInviteAdSlot } from "@/components/ads/FreeInviteAdSlot";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import type { EventRow, NamedGuestRow } from "@/lib/supabase/types";
@@ -144,6 +145,9 @@ export default async function InvitePage({
           />
         )}
         {!event.is_paid && <FreeInviteAdSlot />}
+        {/* Counts this device for the organizer's dashboard. Only reached for
+            a live invitation: the not-found and expired screens return above. */}
+        <ViewTracker eventId={event.id} />
       </div>
     </div>
   );

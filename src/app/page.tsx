@@ -9,7 +9,7 @@ import { InvitationCard } from "@/components/templates/InvitationCard";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
 import { SAMPLE_EVENTS, demoTallCoverDataUri, demoEventDate } from "@/lib/demo-data";
 import { TEMPLATES } from "@/lib/templates";
-import { EVENT_TYPES, PAYMENTS_ENABLED } from "@/lib/event-types";
+import { EVENT_TYPES, EXPIRED_GRACE_DAYS, MAX_LIVE_INVITATIONS, PAYMENTS_ENABLED } from "@/lib/event-types";
 import { buildGoogleCalendarUrl } from "@/lib/calendar";
 import { HeroCardDeck } from "@/components/templates/HeroCardDeck";
 import type { CardEffect } from "@/lib/theme";
@@ -75,6 +75,20 @@ export default async function Home() {
     t.landing.trustTemplates.replace("{count}", templateCount),
     t.landing.trustMessenger,
     PAYMENTS_ENABLED ? t.landing.trustPrice : t.landing.planFree,
+  ];
+
+  // The rules of the free service, said once and plainly. The numbers come
+  // from the same constants the database checks are tested against, so this
+  // text cannot promise something the product does not do.
+  const fill = (text: string) =>
+    text.replace("{live}", String(MAX_LIVE_INVITATIONS)).replace("{grace}", String(EXPIRED_GRACE_DAYS));
+  const rules = [
+    { title: t.landing.ruleGuestsTitle, body: t.landing.ruleGuestsBody },
+    { title: t.landing.ruleSignInTitle, body: t.landing.ruleSignInBody },
+    { title: fill(t.landing.ruleLiveTitle), body: fill(t.landing.ruleLiveBody) },
+    { title: t.landing.ruleLifetimeTitle, body: fill(t.landing.ruleLifetimeBody) },
+    { title: t.landing.ruleEmailTitle, body: t.landing.ruleEmailBody },
+    { title: t.landing.ruleTipsTitle, body: t.landing.ruleTipsBody, href: "/tip", linkLabel: t.tip.navLabel },
   ];
 
   const steps = [
@@ -159,7 +173,7 @@ export default async function Home() {
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
               <Link
-                href="/login"
+                href="/create"
                 className="w-full rounded-full bg-zinc-900 px-6 py-3 text-center text-sm font-medium text-white transition-transform visited:text-white hover:bg-zinc-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none sm:w-auto dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
               >
                 {t.landing.cta}
@@ -379,6 +393,50 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* How the free service works. Takes the place of the pricing section
+          while there is nothing to buy: a visitor still wants to know what the
+          catch is, and the honest answer is a short list of rules. A numbered
+          list in two columns rather than six cards -- these are terms to read,
+          not features to browse. */}
+      {!PAYMENTS_ENABLED && (
+        <section className="reveal border-t border-zinc-200 px-4 py-16 sm:px-6 sm:py-20 dark:border-zinc-800">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="font-display text-2xl font-medium tracking-tight text-balance text-zinc-900 sm:text-4xl dark:text-zinc-50">
+              {t.landing.rulesTitle}
+            </h2>
+            <p className="mt-3 max-w-[56ch] text-sm text-pretty text-zinc-600 sm:text-base dark:text-zinc-400">
+              {t.landing.rulesSubtitle}
+            </p>
+            <ol className="mt-10 grid gap-x-12 gap-y-8 sm:grid-cols-2">
+              {rules.map((rule, i) => (
+                <li key={rule.title} className="flex gap-4">
+                  <span
+                    aria-hidden="true"
+                    className="font-display w-5 shrink-0 text-2xl leading-none font-medium text-amber-700 tabular-nums dark:text-amber-500"
+                  >
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{rule.title}</h3>
+                    <p className="mt-1 max-w-[44ch] text-sm text-pretty text-zinc-600 dark:text-zinc-400">
+                      {rule.body}
+                    </p>
+                    {rule.href && (
+                      <Link
+                        href={rule.href}
+                        className="mt-2 inline-block text-sm font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:text-zinc-100 dark:decoration-zinc-700 dark:hover:decoration-zinc-100"
+                      >
+                        {rule.linkLabel}
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      )}
+
       {/* Pricing. Hidden while PAYMENTS_ENABLED is false (see lib/event-types):
           there is nothing to buy, so a free-vs-paid comparison would advertise
           a plan nobody can reach. */}
@@ -483,7 +541,7 @@ export default async function Home() {
 
           <div className="mt-10 flex justify-center">
             <Link
-              href="/login"
+              href="/create"
               className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-transform visited:text-white hover:bg-zinc-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
             >
               {t.landing.cta}
@@ -510,7 +568,7 @@ export default async function Home() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
               <Link
-                href="/login"
+                href="/create"
                 className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-transform visited:text-white hover:bg-zinc-700 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:bg-zinc-50 dark:text-zinc-900 dark:visited:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-zinc-100"
               >
                 {t.landing.cta}
@@ -556,7 +614,7 @@ export default async function Home() {
             <Link href="/demo" className="hover:text-zinc-900 dark:hover:text-zinc-100">
               {t.landing.demoCta}
             </Link>
-            <Link href="/login" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+            <Link href="/create" className="hover:text-zinc-900 dark:hover:text-zinc-100">
               {t.landing.cta}
             </Link>
           </nav>

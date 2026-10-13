@@ -259,6 +259,8 @@ export function InvitationCard({
             {mapLink && (
               <a
                 href={mapLink}
+                // Read by components/track/ViewTracker on the guest page.
+                data-track="map"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`rounded-full border border-current px-4 py-2 text-xs font-medium transition-opacity hover:opacity-70 sm:text-sm ${accentClass}`}
@@ -270,6 +272,7 @@ export function InvitationCard({
             {calendarUrl && calendarLabel && (
               <a
                 href={calendarUrl}
+                data-track="calendar"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`rounded-full border border-current px-4 py-2 text-xs font-medium transition-opacity hover:opacity-70 sm:text-sm ${accentClass}`}
