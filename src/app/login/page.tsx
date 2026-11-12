@@ -39,7 +39,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <header className="px-4 py-4 sm:px-6">
         <HeaderRow maxWidth="md">
           <Link href="/" className="text-zinc-900 dark:text-zinc-50">
-            <Logo markClassName="h-5 w-5" textClassName="text-base" />
+            <Logo markClassName="h-5 w-5" textClassName="text-base max-[359px]:sr-only" />
           </Link>
           <TopControls />
         </HeaderRow>

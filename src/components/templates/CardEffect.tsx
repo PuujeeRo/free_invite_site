@@ -77,13 +77,22 @@ export function CardEffectLayer({
         className={`pointer-events-none absolute inset-0 overflow-hidden ${accentClass}`}
         style={accentStyle}
       >
-        {/* Light moving across paper stock. Two bands in one: white, which
-            shows on a dark card, and the card's accent colour, without which
-            the sheen was invisible on cream and other pale papers. */}
-        <div className="animate-sheen absolute inset-y-0 -left-1/2 w-1/2">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-current to-transparent opacity-25" />
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+        {/* A narrow glint of light crossing the paper, then a long rest. The
+            white is blended (soft-light / overlay) rather than painted on, so
+            on a dark card it brightens the paper instead of laying a grey
+            band over it; the faint accent tint is what makes it visible on
+            cream and other pale papers. */}
+        {/* The blend mode sits on the moving band itself: it is transformed,
+            so it is its own stacking context, and a blend mode on its children
+            would only blend them with each other, not with the card. */}
+        <div className="animate-sheen absolute inset-y-0 -left-1/4 w-1/4 mix-blend-soft-light">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-current to-transparent opacity-50" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+          <div className="absolute inset-y-0 left-[40%] w-[20%] bg-gradient-to-r from-transparent via-white to-transparent" />
         </div>
+        {/* Shown instead under prefers-reduced-motion (globals.css): a soft
+            light resting in the top corner that slowly breathes. */}
+        <div className="sheen-glow absolute -top-1/4 -left-1/4 hidden size-3/4 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.55),transparent_65%)] mix-blend-soft-light" />
       </div>
     );
   }

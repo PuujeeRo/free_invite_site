@@ -18,13 +18,15 @@
 }
 
 .dark {
-  /* Softer than near-pure-black (#0a0a0a): still reads as dark mode, but
-     without the harsh, glaring contrast that a true near-black background
-     produces against light text. Stays darker than the zinc-900 (#18181b)
-     surfaces cards use throughout the app, so elevation/contrast between the
-     page and a card is still preserved. */
-  --background: #121214;
-  --foreground: #ededed;
+  /* Soft charcoal instead of near-black. The dark-mode surfaces the app uses
+     (dark:bg-zinc-900 cards, zinc-800/700 borders) are re-tinted to lighter
+     charcoal steps here so cards still sit above the page. Only applies
+     inside .dark, so light mode keeps Tailwind's stock zinc. */
+  --background: #1e1e21;
+  --foreground: #ececee;
+  --color-zinc-900: #28282c;
+  --color-zinc-800: #333338;
+  --color-zinc-700: #434349;
 }
 
 body {
@@ -94,17 +96,19 @@ body {
 }
 
 /* Slow sheen across the invitation card, like light moving over paper stock. */
+/* The glint crosses the card in the first 30% (about 1.8s), then rests. */
 @keyframes naashir-sheen {
   0% {
-    transform: translateX(-120%) skewX(-18deg);
+    transform: translateX(-60%) skewX(-20deg);
   }
+  30%,
   100% {
-    transform: translateX(320%) skewX(-18deg);
+    transform: translateX(560%) skewX(-20deg);
   }
 }
 
 .animate-sheen {
-  animation: naashir-sheen 4.5s ease-in-out 0.6s infinite;
+  animation: naashir-sheen 6s cubic-bezier(0.45, 0, 0.3, 1) 0.8s infinite both;
 }
 
 /* Card effects (components/templates/CardEffect.tsx). Durations and delays
@@ -208,6 +212,156 @@ body {
     transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
 }
 
+/* ---------- envelope opening (components/templates/EnvelopeReveal.tsx) ----------
+
+   Sequence after the tap, all driven by the .envelope-opening class:
+     0.00s  seal pops and fades (0.5s)
+     0.25s  flap swings open on its top hinge (1.25s), fully open at 1.5s
+     0.85s  flap drops behind the card (z-index flip, mid-swing)
+     1.30s  card slides up out of the envelope (1.2s), then rests
+     3.00s  .envelope-revealing: everything fades and lifts away (0.9s), gone at 4.0s
+   The JS timers in EnvelopeReveal must match the last two numbers. */
+
+/* The page's own entrance animations wait until the envelope is gone. */
+.envelope-closed .animate-fade-in-up {
+  animation-play-state: paused;
+}
+
+.envelope-stage {
+  perspective: 1100px;
+  transition:
+    transform 0.9s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.8s ease;
+}
+
+.envelope-float {
+  animation: naashir-envelope-float 4.5s ease-in-out infinite;
+}
+
+@keyframes naashir-envelope-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.2deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1.2deg);
+  }
+}
+
+.envelope {
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.22)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.12));
+}
+
+.envelope-letter {
+  z-index: 2;
+  transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1) 1.3s;
+}
+
+.envelope-front {
+  z-index: 3;
+  clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%);
+}
+
+.envelope-flap {
+  z-index: 4;
+  transform-origin: 50% 0;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.14));
+  transition:
+    transform 1.25s cubic-bezier(0.45, 0, 0.2, 1) 0.25s,
+    z-index 0s linear 0.85s;
+}
+
+.envelope-flap-paper {
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.envelope-seal {
+  transform: translate(-50%, -50%);
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.4s ease 0.1s;
+  animation: naashir-seal-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes naashir-seal-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 3px 8px rgba(0, 0, 0, 0.3),
+      0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 3px 8px rgba(0, 0, 0, 0.3),
+      0 0 0 10px color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+
+.envelope-hint {
+  animation: naashir-twinkle 2.4s ease-in-out infinite;
+  transition: opacity 0.3s ease;
+}
+
+.envelope-stage:hover .envelope-flap {
+  transform: rotateX(14deg);
+}
+
+/* --- opening --- */
+.envelope-opening .envelope-float {
+  animation-play-state: paused;
+}
+
+.envelope-opening .envelope-hint {
+  animation: none;
+  opacity: 0;
+}
+
+.envelope-opening .envelope-seal {
+  animation: none;
+  transform: translate(-50%, -50%) scale(1.35) rotate(-12deg);
+  opacity: 0;
+}
+
+.envelope-opening .envelope-flap,
+.envelope-opening .envelope-stage:hover .envelope-flap {
+  transform: rotateX(180deg);
+  z-index: 1;
+}
+
+.envelope-opening .envelope-letter {
+  transform: translateY(-62%);
+}
+
+.envelope-overlay {
+  transition: opacity 0.9s ease;
+}
+
+.envelope-revealing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.envelope-revealing .envelope-stage {
+  transform: translateY(-24px) scale(1.12);
+  opacity: 0;
+}
+
+/* Reduce motion: only the idle loops stop (floating, seal pulse, blinking
+   hint). The opening itself still plays. It runs once, only when the guest
+   taps, and is the whole point of the screen. An earlier version replaced it
+   with a quick fade, and on Windows, where "Animation effects" is often off
+   (which browsers report as reduce motion), the envelope seemed to vanish
+   instantly. Same reasoning as the card effects below. */
+@media (prefers-reduced-motion: reduce) {
+  .envelope-float,
+  .envelope-seal,
+  .envelope-hint {
+    animation: none;
+  }
+}
+
 /* Respect the OS "reduce motion" setting: decorative loops stop entirely, and
    entrance animations resolve to their final state instead of being skipped
    mid-way (which would leave elements faded out). */
@@ -218,13 +372,17 @@ body {
     animation: none;
   }
 
-  /* The sheen is the default card effect. With its sweep simply switched off
-     the band sat parked outside the card, so the default looked like no effect
-     at all. Here it stays across the middle of the card and glows in and out
-     instead of travelling. */
+  /* The sheen is the default card effect, so it should not just disappear.
+     An earlier version parked the band across the middle of the card and
+     pulsed it, which read as a grey streak on dark cards. Instead the band is
+     hidden and a soft light in the top corner breathes in place. */
   .animate-sheen {
-    transform: translateX(150%) skewX(-18deg);
-    animation: naashir-twinkle 4s ease-in-out infinite;
+    display: none;
+  }
+
+  .sheen-glow {
+    display: block;
+    animation: naashir-twinkle 5s ease-in-out infinite;
   }
 
   .animate-fade-in-up {

@@ -108,7 +108,7 @@ export default async function Home() {
       <div className="flex flex-col lg:min-h-svh">
         <header className="px-4 py-4 sm:px-6">
           <HeaderRow maxWidth="3xl">
-            <Logo markClassName="h-5 w-5" textClassName="text-base sm:text-lg" />
+            <Logo markClassName="h-5 w-5" textClassName="text-base sm:text-lg max-[359px]:sr-only" />
             <div className="flex items-center gap-2">
               <TopControls />
               <AccountButton />
@@ -188,25 +188,14 @@ export default async function Home() {
               is safe. The top offset stays unconditional -- the vertical gap
               between the text block and this wrapper never went to zero at any
               tested width, so it never clipped. */}
-          {/* From lg: up the card's width is driven by available viewport
-              HEIGHT, not just width -- this is what actually fixes the hero
-              overflowing.
-              The coefficients below are MEASURED, not modelled. The obvious
-              model (height = 0.75*width photo + fixed text block) is wrong and
-              wildly over-shrinks: narrowing the card makes its text wrap more,
-              which adds back most of the height the photo lost. Measured
-              heights at 1536x800: 288w->678h, 352w->688h, 400w->702h,
-              448w->739h -- i.e. a 36% width cut buys only 8% height. Only the
-              400..448 region has real slope (~0.77px height per px width), so
-              that region is what the linear term is fitted to; below ~400 the
-              curve goes nearly flat and narrowing stops being worth it, which
-              is what the 18rem floor encodes.
-              The constant carries a deliberate ~10px of slack rather than
-              solving for an exact fit -- an exact fit is fragile, since the
-              measured curve shifts a little with locale and font loading.
-              Stated in rem, not px, so it holds under a non-16px root font as
-              well as under OS display scaling. Capped at 28rem (max-w-md, the
-              natural size, reached once the viewport is ~838px tall). */}
+          {/* The card keeps its natural width (max-w-md) at every height. Its
+              height follows the screen (the min-h rule on the deck cards
+              below), so a narrower card is no shorter: its text only wraps
+              more and climbs up over the cover's emoji. An earlier rule
+              narrowed the card on short screens (down to 18rem at 720px tall)
+              from heights measured before that min-h existed; measured again,
+              448px fits the screen from 620px tall and keeps the emoji clear
+              of the text from 680px, at every width that is narrower worse. */}
           {/* On a large display (1800px wide AND 1000px tall) the whole card
               stack is enlarged by a quarter with `zoom`. zoom, unlike a
               transform, scales the box the layout sees, so the row still
@@ -221,7 +210,7 @@ export default async function Home() {
               rule further down can divide by it: lengths inside a zoomed
               element are themselves scaled, so "the screen height" has to be
               asked for at 1/zoom to come out as the screen height. */}
-          <div className="relative w-full max-w-md shrink-0 max-sm:w-[calc(100%-2rem)] [zoom:var(--hero-zoom)] [--hero-zoom:1] lg:max-w-[min(28rem,max(18rem,calc(129.87svh_-_40rem)))] [@media(min-width:1800px)_and_(min-height:1000px)]:[--hero-zoom:1.25]">
+          <div className="relative w-full max-w-md shrink-0 max-sm:w-[calc(100%-2rem)] [zoom:var(--hero-zoom)] [--hero-zoom:1] [@media(min-width:1800px)_and_(min-height:1000px)]:[--hero-zoom:1.25]">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -top-3 right-0 w-[88%] rotate-6 opacity-95 select-none sm:-right-3"
@@ -269,6 +258,7 @@ export default async function Home() {
                     photoUrl={demoTallCoverDataUri(sample.photoEmoji, colors, { y: 20, size: 120 })}
                     className="lg:min-h-[min(calc((100svh_-_7.5rem)/var(--hero-zoom)),46rem)]"
                     coverLayout="full"
+                    fullCoverFit="stretched-lg"
                     theme={{ effect }}
                     customText={greeting ? { greetingOverride: greeting } : undefined}
                     templateId={sample.defaultTemplateId}

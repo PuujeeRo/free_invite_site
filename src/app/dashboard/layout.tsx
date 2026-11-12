@@ -34,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               back to the home page at all, so the event list gets its own
               text link instead. */}
           <Link href="/" className="text-zinc-900 dark:text-zinc-50">
-            <Logo markClassName="h-5 w-5" textClassName="text-base" />
+            <Logo markClassName="h-5 w-5" textClassName="text-base max-[359px]:sr-only" />
           </Link>
           <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
             <Link href="/dashboard" className="hover:text-zinc-900 dark:hover:text-zinc-50">

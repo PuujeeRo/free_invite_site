@@ -21,6 +21,8 @@ import { coverBackgroundUrl } from "@/lib/cover-backgrounds";
 import { ViewTracker } from "@/components/track/ViewTracker";
 import { FreeInviteAdSlot } from "@/components/ads/FreeInviteAdSlot";
 import { countdownLabelsFrom } from "@/lib/countdown-labels";
+import { EnvelopeReveal } from "@/components/templates/EnvelopeReveal";
+import { formatEventDate } from "@/lib/format";
 import type { EventRow, NamedGuestRow } from "@/lib/supabase/types";
 
 export default async function InvitePage({
@@ -80,7 +82,17 @@ export default async function InvitePage({
     event.photo_url ??
     (gallery.length > 0 ? null : coverBackgroundUrl(theme.cover ?? "none", event.event_type, coverLayout, theme.icon));
 
+  const guestName = [guest?.first_name, guest?.last_name].filter(Boolean).join(" ");
+  const envelopeLine = greeting ? t.invite.envelopeGreeting : t.invite.envelopeInvitation;
+
   return (
+    <EnvelopeReveal
+      templateId={event.template_id}
+      eventName={event.name}
+      frontLine={guestName ? `${t.invite.envelopeFor} ${guestName}` : envelopeLine}
+      dateLine={formatEventDate(event.event_date, event.event_time)}
+      tapLabel={t.invite.envelopeTap}
+    >
     <div className="flex flex-1 flex-col">
       <header className="px-4 py-3">
         <HeaderRow maxWidth="md" justify="end">
@@ -146,6 +158,7 @@ export default async function InvitePage({
         <ViewTracker eventId={event.id} />
       </div>
     </div>
+    </EnvelopeReveal>
   );
 }
 

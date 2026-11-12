@@ -322,6 +322,35 @@ four-point ornament), so brand and product read as one design. Rendered at
 > XML comment — it is illegal in XML and silently breaks the entire file with a
 > parse error rather than just ignoring the comment.
 
+## Demo data
+
+`scripts/seed-demo.ts` fills one organizer's dashboard with fake invitations, guests, RSVPs and view counts, in whatever Supabase project `.env.local` points at. It is meant for the dev database. The account must already exist (sign in once), and the demo slugs are fixed, so only one account can hold the demo data at a time.
+
+```bash
+npx tsx scripts/seed-demo.ts seed  puujeero@gmail.com   # removes the old demo data, then creates it again
+npx tsx scripts/seed-demo.ts clean puujeero@gmail.com   # removes it
+```
+
+It only touches invitations whose slug starts with `demo-`, and everything attached to them goes when they are deleted. Guest email addresses are all `@example.com`. The first four count toward the account's 5 live invitations, which leaves room for one real one.
+
+Links, on a dev server at `localhost:3001`:
+
+| Invitation | Cover | Link |
+| --- | --- | --- |
+| Wedding, Батболд & Сарнай | photo as the full background, 3-photo slider | http://localhost:3001/i/demo-wedding |
+| Wedding, personal link for Тэмүүлэн | same | http://localhost:3001/i/demo-wedding?to=demo-wedding-guest |
+| Birthday, Анудари 30 нас | photo on top, 3-photo slider | http://localhost:3001/i/demo-birthday |
+| Kid's 1st birthday, Бяцхан Тэнүүн 1 нас | built-in drawn background (sky, 🧸), full | http://localhost:3001/i/demo-first-birthday |
+| Company event, Year-end Team Dinner 2026 | photo at the bottom, 3-photo slider | http://localhost:3001/i/demo-team-dinner |
+| Graduation, expired | built-in (night, 🎓), never shown | http://localhost:3001/i/demo-graduation |
+| Dashboard (sign in as `puujeero@gmail.com`) | | http://localhost:3001/dashboard |
+
+It also adds 7 paid, public tips, so the supporters list on http://localhost:3001/tip has names and messages. Tips belong to no account, so the demo ones are marked `provider_ref = 'demo-seed'`, and `seed` and `clean` remove only those.
+
+The photos are Unsplash links, not uploads, so nothing lands in storage. The cover photo is shown straight from Unsplash and the slider photos go through `/api/img`, the same as links an organizer pastes.
+
+Each demo's first guest gets the personal link `?to=<slug>-guest`, not only the wedding's. Event dates are relative to the day of seeding, and live links expire 14 days after it, so reseed when they run out.
+
 ## Design constraints
 
 Guests almost always open invitations on a phone, from a Messenger link — the

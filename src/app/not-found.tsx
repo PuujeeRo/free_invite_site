@@ -23,7 +23,7 @@ export default async function NotFound() {
   const t = getDictionary(locale);
 
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-white px-6 py-16 text-center dark:from-indigo-950 dark:via-slate-950 dark:to-black">
+    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-white px-6 py-16 text-center dark:from-indigo-950/60 dark:via-background dark:to-background">
       <div className="pointer-events-none absolute inset-0">
         {STARS.map((star, i) => (
           <span

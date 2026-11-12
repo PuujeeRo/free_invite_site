@@ -271,6 +271,10 @@ const dictionaries = {
       countdownMinutes: "min",
       countdownSeconds: "sec",
       countdownStarted: "It's happening 🎉",
+      envelopeFor: "For",
+      envelopeInvitation: "You're invited",
+      envelopeGreeting: "A card for you",
+      envelopeTap: "Tap to open",
     },
     edit: {
       title: "Edit invitation",
@@ -615,6 +619,10 @@ const dictionaries = {
       countdownMinutes: "мин",
       countdownSeconds: "сек",
       countdownStarted: "Эхэллээ 🎉",
+      envelopeFor: "Хүндэт",
+      envelopeInvitation: "Танд урилга ирлээ",
+      envelopeGreeting: "Танд мэндчилгээ ирлээ",
+      envelopeTap: "Нээхийн тулд дарна уу",
     },
     edit: {
       title: "Урилга засах",

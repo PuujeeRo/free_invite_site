@@ -13,7 +13,7 @@ export function PublicHeader({ maxWidth = "3xl" }: { maxWidth?: React.ComponentP
           href="/"
           className="rounded text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none dark:text-zinc-50 dark:focus-visible:ring-zinc-100"
         >
-          <Logo markClassName="h-5 w-5" textClassName="text-base sm:text-lg" />
+          <Logo markClassName="h-5 w-5" textClassName="text-base sm:text-lg max-[359px]:sr-only" />
         </Link>
         <div className="flex items-center gap-2">
           <TopControls />
