@@ -188,29 +188,21 @@ export default async function Home() {
               is safe. The top offset stays unconditional -- the vertical gap
               between the text block and this wrapper never went to zero at any
               tested width, so it never clipped. */}
-          {/* The card keeps its natural width (max-w-md) at every height. Its
-              height follows the screen (the min-h rule on the deck cards
-              below), so a narrower card is no shorter: its text only wraps
-              more and climbs up over the cover's emoji. An earlier rule
-              narrowed the card on short screens (down to 18rem at 720px tall)
-              from heights measured before that min-h existed; measured again,
-              448px fits the screen from 620px tall and keeps the emoji clear
-              of the text from 680px, at every width that is narrower worse. */}
-          {/* On a large display (1800px wide AND 1000px tall) the whole card
-              stack is enlarged by a quarter with `zoom`. zoom, unlike a
-              transform, scales the box the layout sees, so the row still
-              centres and spaces around the bigger card. The height condition
-              keeps it off wide-but-short windows, where the enlarged card
-              (about 700px) would no longer fit the one-screen hero. */}
+          {/* The deck cards are the same card every other page shows (cover
+              pinned at the top, text below), at their natural width. Rather
+              than reshaping the card to fit a screen, the whole stack is
+              scaled with `zoom`, which, unlike a transform, scales the box the
+              layout sees, so the row still centres and spaces around it:
+              - large display (1800px wide AND 1000px tall): x1.25, so the card
+                is not small and adrift on a big monitor;
+              - short laptop screen (lg: and under 760px tall): x0.88, so the
+                card (about 630px tall) still fits the one-screen hero.
+              Measured at 1024x680 up to 2560x1440. */}
           {/* Below sm: the stack is inset by 1rem a side. A tilted card is wider
               than its own box (by about its height times the sine of the tilt),
               and at full width on a phone that pushed its corners past the
               screen edge, where the section clips them. */}
-          {/* --hero-zoom carries the enlargement factor so the card's height
-              rule further down can divide by it: lengths inside a zoomed
-              element are themselves scaled, so "the screen height" has to be
-              asked for at 1/zoom to come out as the screen height. */}
-          <div className="relative w-full max-w-md shrink-0 max-sm:w-[calc(100%-2rem)] [zoom:var(--hero-zoom)] [--hero-zoom:1] [@media(min-width:1800px)_and_(min-height:1000px)]:[--hero-zoom:1.25]">
+          <div className="relative w-full max-w-md shrink-0 max-sm:w-[calc(100%-2rem)] [zoom:var(--hero-zoom)] [--hero-zoom:1] [@media(min-width:1024px)_and_(max-height:759px)]:[--hero-zoom:0.88] [@media(min-width:1800px)_and_(min-height:1000px)]:[--hero-zoom:1.25]">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -top-3 right-0 w-[88%] rotate-6 opacity-95 select-none sm:-right-3"
@@ -233,17 +225,10 @@ export default async function Home() {
 
             <div className="animate-drift relative -rotate-2">
               {/* Three invitations taking turns. Each is the current kind of
-                  card: the cover as the whole background, an effect running,
-                  the countdown, and the map and calendar buttons guests get.
-                  No description on them: with the countdown and two buttons
-                  the text block is already tall, and one more paragraph pushed
-                  its first line up over the cover's emoji.
-                  All three share one height rule, so the deck does not change
-                  size as it rotates: from lg: up the card follows the screen
-                  (viewport minus the header, the hero's padding and room for
-                  the tilt), up to 46rem. A full-background card otherwise
-                  stops at a fixed 34rem, which left it short and adrift in a
-                  hero that is itself a full screen tall. */}
+                  card, exactly as a guest gets it: the cover as the whole
+                  background, an effect running, the countdown, and the map
+                  and calendar buttons. No description on them, to keep the
+                  card short enough for the one-screen hero. */}
               <HeroCardDeck
                 labels={heroDeck.map(({ sample }) => sample.name)}
                 cards={heroDeck.map(({ sample, colors, effect, greeting }) => (
@@ -255,14 +240,13 @@ export default async function Home() {
                     eventTime={time}
                     location={sample.location}
                     description={null}
-                    photoUrl={demoTallCoverDataUri(sample.photoEmoji, colors, { y: 20, size: 120 })}
-                    className="lg:min-h-[min(calc((100svh_-_7.5rem)/var(--hero-zoom)),46rem)]"
+                    photoUrl={demoTallCoverDataUri(sample.photoEmoji, colors)}
                     coverLayout="full"
-                    fullCoverFit="stretched-lg"
                     theme={{ effect }}
                     customText={greeting ? { greetingOverride: greeting } : undefined}
                     templateId={sample.defaultTemplateId}
                     isPaid
+                    showWatermark
                     countdownEnabled
                     mapLink="https://www.openstreetmap.org/?mlat=47.9185&mlon=106.9177#map=17/47.9185/106.9177"
                     calendarUrl={buildGoogleCalendarUrl({
@@ -440,6 +424,7 @@ export default async function Home() {
               coverLayout="full"
               templateId={closing.defaultTemplateId}
               isPaid
+              showWatermark
               theme={{ effect: "sparkle" }}
               mapLinkLabel={t.invite.viewMap}
               watermarkText={t.invite.watermark}

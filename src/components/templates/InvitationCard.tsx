@@ -51,15 +51,6 @@ export interface InvitationCardProps {
   videoUrl?: string | null;
   theme?: EventTheme;
   customText?: EventCustomText;
-  // With coverLayout "full": "pinned" (default) keeps the picture at its own
-  // 3:4 shape at the top and starts the text below it, so nothing slides under
-  // the text whatever its length. "stretched" spreads the picture over the
-  // whole card with the text on top -- only for a caller that controls both
-  // the picture and the text and has checked they stay clear (the landing
-  // hero, whose card height is fitted to the screen). "stretched-lg" is pinned
-  // below lg: and stretched from lg: up -- the hero, which only fits its card
-  // to the screen from lg: up and on a phone simply scrolls.
-  fullCoverFit?: "pinned" | "stretched" | "stretched-lg";
 }
 
 export function InvitationCard({
@@ -90,7 +81,6 @@ export function InvitationCard({
   videoUrl,
   theme,
   customText,
-  fullCoverFit = "pinned",
 }: InvitationCardProps) {
   const template = getTemplate(templateId);
   const greeting =
@@ -110,19 +100,6 @@ export function InvitationCard({
     ) : null;
   const layout: CoverLayout = cover ? coverLayout : "top";
   const full = layout === "full";
-  // Class sets for the three fits. Written out in full (not assembled from
-  // prefixes) so Tailwind's scanner sees every class.
-  const fit = !full ? null : fullCoverFit;
-  const fullBackdropClass =
-    fit === "pinned" ? "bg-black" : fit === "stretched-lg" ? "bg-black lg:bg-transparent" : "";
-  const fullPictureClass =
-    fit === "pinned"
-      ? "absolute inset-x-0 top-0 aspect-3/4 [mask-image:linear-gradient(to_bottom,black_70%,transparent)]"
-      : fit === "stretched-lg"
-        ? "absolute inset-x-0 top-0 aspect-3/4 [mask-image:linear-gradient(to_bottom,black_70%,transparent)] lg:bottom-0 lg:aspect-auto lg:[mask-image:none]"
-        : "absolute inset-0";
-  const textTopClass =
-    fit === "pinned" ? "pt-[55%]" : fit === "stretched-lg" ? "pt-[55%] lg:pt-10" : "pt-8 sm:pt-10";
 
   // Paid-only accent color override: arbitrary user hex can't be a static
   // Tailwind class (nothing to scan at build time), so it's an inline style
@@ -167,13 +144,13 @@ export function InvitationCard({
       } ${className}`}
     >
       {full && cover && (
-        <div className={`absolute inset-0 ${fullBackdropClass}`}>
-          {/* Pinned: the picture keeps its own 3:4 shape at the top of the
+        <div className="absolute inset-0 bg-black">
+          {/* The picture keeps its own 3:4 shape at the top of the
               card instead of stretching to the card's height, which depends
               on how much text there is. Stretched, a picture's subject (and
               the icon of a built-in cover, drawn high up) slid down under the
               text. Its bottom edge fades into the black of the card. */}
-          <div className={fullPictureClass}>
+          <div className="absolute inset-x-0 top-0 aspect-3/4 [mask-image:linear-gradient(to_bottom,black_70%,transparent)]">
             {cover}
           </div>
           {/* Scrim: darkest where the text sits, nearly clear at the top so
@@ -218,7 +195,7 @@ export function InvitationCard({
         // half of the picture (padding in % is of the card's width, so this
         // tracks the 3:4 picture above at every size).
         className={`relative z-[1] flex flex-col items-center gap-2.5 px-4 text-center sm:gap-3 sm:px-8 ${
-          textTopClass
+          full ? "pt-[55%]" : "pt-8 sm:pt-10"
         } ${
           badgeOverText ? "pb-14 sm:pb-16" : "pb-8 sm:pb-10"
         }`}

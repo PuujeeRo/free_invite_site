@@ -98,6 +98,8 @@ export function PreviewClient() {
         templateId={draft.templateId}
         isPaid
         showWatermark
+        // New invitations start with the countdown on (dashboard/new/actions.ts).
+        countdownEnabled={draft.kind !== "greeting"}
         theme={{ effect: parseCardEffect(draft.effect) }}
         mapLinkLabel={t.invite.viewMap}
         watermarkText={t.invite.watermark}

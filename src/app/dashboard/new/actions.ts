@@ -127,6 +127,10 @@ export async function createEvent(
         ...(mapLink.url ? { map_link: mapLink.url } : {}),
         template_id: templateId,
         slug,
+        // On for invitations, so a new one looks like the demo and the
+        // landing cards that show it; it can be switched off on the edit
+        // page. A greeting has no event to count down to.
+        countdown_enabled: !isGreeting,
         // Sent only for greetings, so that creating an ordinary invitation
         // keeps working on a database that has not had migration 0009 applied
         // (the columns would not exist yet; their default is 'invitation').

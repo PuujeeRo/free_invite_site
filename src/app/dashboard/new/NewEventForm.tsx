@@ -498,6 +498,8 @@ export function NewEventForm({
             // Same pairing as the real guest page: extras on, watermark shown.
             isPaid
             showWatermark
+            // New invitations start with the countdown on (dashboard/new/actions.ts).
+            countdownEnabled={!greeting}
             theme={{ effect }}
             mapLinkLabel={t.invite.viewMap}
             watermarkText={t.invite.watermark}
