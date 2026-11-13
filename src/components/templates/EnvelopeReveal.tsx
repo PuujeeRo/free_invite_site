@@ -77,7 +77,13 @@ export function EnvelopeReveal({
 
   return (
     <>
-      <div className={phase === "closed" || phase === "opening" ? "envelope-closed contents" : "contents"}>
+      {/* inert while the envelope covers it: otherwise Tab walked through the
+          hidden page's buttons and a screen reader read it out behind the
+          envelope. */}
+      <div
+        className={phase === "closed" || phase === "opening" ? "envelope-closed contents" : "contents"}
+        inert={phase !== "done" && phase !== "revealing"}
+      >
         {children}
       </div>
 

@@ -42,6 +42,10 @@ export function CountdownTimer({
     return () => clearInterval(id);
   }, [target]);
 
+  // No date yet (the create form and its preview before one is picked), or
+  // one that does not parse: there is nothing to count down to.
+  if (Number.isNaN(target)) return null;
+
   if (remaining.done) {
     return <p className={`text-sm font-medium ${textClassName}`}>{labels.started}</p>;
   }

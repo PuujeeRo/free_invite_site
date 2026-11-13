@@ -95,12 +95,7 @@ export default async function InvitePage({
     >
     <div className="flex flex-1 flex-col">
       <header className="px-4 py-3">
-        <HeaderRow maxWidth="md" justify="end">
-          <div className="flex items-center gap-2">
-            <TopControls />
-            <AccountButton />
-          </div>
-        </HeaderRow>
+        <InviteHeaderControls />
       </header>
       <div className="flex flex-1 flex-col items-center gap-4 px-3 pb-10 sm:gap-6 sm:px-4">
         <InvitationCard
@@ -162,10 +157,29 @@ export default async function InvitePage({
   );
 }
 
+// The guest page's header: language, theme, tip and account, no logo.
+function InviteHeaderControls() {
+  return (
+    <HeaderRow maxWidth="md" justify="end">
+      <div className="flex items-center gap-2">
+        <TopControls />
+        <AccountButton />
+      </div>
+    </HeaderRow>
+  );
+}
+
+// Expired or unknown link. Same header as a live invitation, so a guest who
+// lands here can still switch the language to read the message.
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-1 items-center justify-center px-6 py-24 text-center">
-      <p className="max-w-sm text-zinc-600 dark:text-zinc-400">{children}</p>
+    <div className="flex flex-1 flex-col">
+      <header className="px-4 py-3">
+        <InviteHeaderControls />
+      </header>
+      <div className="flex flex-1 items-center justify-center px-6 py-24 text-center">
+        <p className="max-w-sm text-zinc-600 dark:text-zinc-400">{children}</p>
+      </div>
     </div>
   );
 }
